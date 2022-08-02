@@ -1,7 +1,9 @@
 use std::{
     fs::File,
     io::{BufRead, BufReader},
+    ops::Index,
     path::Path,
+    slice::SliceIndex,
     vec::IntoIter,
 };
 
@@ -23,6 +25,14 @@ impl RawJson {
             json.push(line?.chars().collect())
         }
         Ok(Self { json })
+    }
+
+    pub fn rows(&self) -> usize {
+        self.json.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.rows() == 0
     }
 }
 
@@ -80,6 +90,13 @@ impl IntoIterator for RawJson {
 impl RawJson {
     pub fn iter(&self) -> impl Iterator<Item = &Vec<char>> {
         self.json.iter()
+    }
+}
+
+impl<I: SliceIndex<[Vec<char>]>> Index<I> for RawJson {
+    type Output = I::Output;
+    fn index(&self, index: I) -> &Self::Output {
+        &self.json[index]
     }
 }
 
