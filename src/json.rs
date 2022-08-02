@@ -14,14 +14,14 @@ pub struct RawJson {
 }
 
 impl RawJson {
-    pub fn readfile(path: &Path) -> anyhow::Result<Self> {
+    pub fn read_file(path: &Path) -> anyhow::Result<Self> {
         let file = File::open(path)?;
         Self::read(BufReader::new(file))
     }
 
-    pub fn read<B: BufRead>(bufread: B) -> anyhow::Result<Self> {
+    pub fn read<B: BufRead>(buf_read: B) -> anyhow::Result<Self> {
         let mut json = Vec::new();
-        for line in bufread.lines() {
+        for line in buf_read.lines() {
             json.push(line?.chars().collect())
         }
         Ok(Self { json })
@@ -107,11 +107,11 @@ mod tests {
     #[test]
     fn test_json_into_iter() {
         let json: RawJson = vec!["{", "\"a\": 1", "}"].into_iter().collect();
-        let mut jiter = json.into_iter();
-        let mut line1 = jiter.next().unwrap().into_iter();
+        let mut j_iter = json.into_iter();
+        let mut line1 = j_iter.next().unwrap().into_iter();
         assert_eq!(line1.next(), Some('{'));
         assert_eq!(line1.next(), None);
-        let mut line2 = jiter.next().unwrap().into_iter();
+        let mut line2 = j_iter.next().unwrap().into_iter();
         assert_eq!(line2.next(), Some('"'));
         assert_eq!(line2.next(), Some('a'));
         assert_eq!(line2.next(), Some('"'));
@@ -119,10 +119,10 @@ mod tests {
         assert_eq!(line2.next(), Some(' '));
         assert_eq!(line2.next(), Some('1'));
         assert_eq!(line2.next(), None);
-        let mut line3 = jiter.next().unwrap().into_iter();
+        let mut line3 = j_iter.next().unwrap().into_iter();
         assert_eq!(line3.next(), Some('}'));
         assert_eq!(line3.next(), None);
-        assert_eq!(jiter.next(), None);
+        assert_eq!(j_iter.next(), None);
         // let _json_is_moved = json;  // compile error
     }
 
@@ -136,5 +136,20 @@ mod tests {
             }
         }
         let _json_is_not_moved = json; // not compile error
+    }
+
+    #[test]
+    fn test_json_flatten() {
+        let json: RawJson = vec!["{", "\"a\": 1", "}"].into_iter().collect();
+        let mut j_iter = json.into_iter().flat_map(|l| l.into_iter());
+        assert_eq!(j_iter.next(), Some('{'));
+        assert_eq!(j_iter.next(), Some('"'));
+        assert_eq!(j_iter.next(), Some('a'));
+        assert_eq!(j_iter.next(), Some('"'));
+        assert_eq!(j_iter.next(), Some(':'));
+        assert_eq!(j_iter.next(), Some(' '));
+        assert_eq!(j_iter.next(), Some('1'));
+        assert_eq!(j_iter.next(), Some('}'));
+        assert_eq!(j_iter.next(), None);
     }
 }
