@@ -36,22 +36,15 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_object(&mut self) -> anyhow::Result<Value> {
-        let peeked = self.lexer.skip_white_space();
-        let &(_pos, _lb) = peeked.ok_or_else(|| anyhow!("unexpected EOF, start parse object"))?;
-
         let mut object = HashMap::new();
         self.lexer.lex1char(Token::LeftBrace)?;
         while !self.lexer.is_next(Token::RightBrace) {
-            let (pos, quotation) =
-                self.lexer.next().ok_or_else(|| anyhow!("unexpected EOF, start parse object"))?;
-            if matches!(Token::tokenize(quotation), Token::Quotation) {
-                let key = self.parse_string().with_context(|| format!("{}: key", postr(pos)))?;
-                self.lexer
-                    .lex1char(Token::Colon)
-                    .with_context(|| format!("{}: while parse object", postr(pos)))?;
-                let value = self.parse_value().with_context(|| format!("{}: value", postr(pos)))?;
+            if self.lexer.is_next(Token::Quotation) {
+                let key = self.parse_string().context("while parse object's key")?;
+                self.lexer.lex1char(Token::Colon).context("while parse object")?;
+                let value = self.parse_value().context("while parse object's value")?;
                 if let Ok((p, _comma)) = self.lexer.lex1char(Token::Comma) {
-                    ensure!(!self.lexer.is_next(Token::RightBrace), "{}: trailing comma", postr(p))
+                    ensure!(!self.lexer.is_next(Token::RightBrace), "{}: trailing comma", postr(p));
                 }
                 object.insert(key.to_string(), value);
             }
@@ -61,9 +54,17 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_array(&mut self) -> anyhow::Result<Value> {
-        let peeked = self.lexer.skip_white_space();
-        let &(pos, c) = peeked.ok_or_else(|| anyhow!("unexpected EOF, start parse array"))?;
-        Ok(Value::Array(Vec::new()))
+        let mut array = Vec::new();
+        self.lexer.lex1char(Token::LeftBracket)?;
+        while !self.lexer.is_next(Token::RightBracket) {
+            let value = self.parse_value()?;
+            if let Ok((p, _comma)) = self.lexer.lex1char(Token::Comma) {
+                ensure!(!self.lexer.is_next(Token::RightBracket), "{}: trailing comma", postr(p));
+            }
+            array.push(value);
+        }
+        self.lexer.lex1char(Token::RightBracket)?;
+        Ok(Value::Array(array))
     }
 
     pub fn parse_bool(&mut self) -> anyhow::Result<Value> {
@@ -96,11 +97,25 @@ mod tests {
         let empty: RawJson = "{}".into();
         let mut parser = Parser::new(&empty);
         let object = parser.parse_object();
-        if let Value::Object(om) = object.unwrap() {
-            assert_eq!(om, HashMap::new());
+        if let Value::Object(m) = object.unwrap() {
+            assert_eq!(m, HashMap::new());
         } else {
             unreachable!("\"{{}}\" must be parsed as empty object");
         }
+        assert_eq!(parser.lexer.next(), None);
+    }
+
+    #[test]
+    fn test_parse_empty_array() {
+        let empty: RawJson = "[\r\n \t \n  ]".into();
+        let mut parser = Parser::new(&empty);
+        let object = parser.parse_array();
+        if let Value::Array(v) = object.unwrap() {
+            assert_eq!(v, Vec::new());
+        } else {
+            unreachable!("\"[]\" must be parsed as empty array");
+        }
+        assert_eq!(parser.lexer.next(), None);
     }
 
     #[test]
