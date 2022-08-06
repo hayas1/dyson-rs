@@ -1,21 +1,15 @@
-use std::marker::PhantomData;
-
 use anyhow::{bail, ensure};
 
-use crate::{
-    json::RawJson,
-    token::{ExtraToken, TokenType},
-};
+use crate::{json::RawJson, postring, token::Token};
 
 pub type Nexted = ((usize, usize), char); // next is not verb but...
 pub type Peeked<'a> = &'a Nexted;
 
-pub struct Lexer<'a, T> {
+pub struct Lexer<'a> {
     json: &'a RawJson,
     curr: Option<((usize, usize), char)>,
-    token: PhantomData<T>,
 }
-impl<'a, T> Iterator for Lexer<'a, T> {
+impl<'a> Iterator for Lexer<'a> {
     type Item = ((usize, usize), char);
     fn next(&mut self) -> Option<Self::Item> {
         let ((row, col), curr) = self.curr?;
@@ -29,14 +23,10 @@ impl<'a, T> Iterator for Lexer<'a, T> {
         Some(((row, col), curr))
     }
 }
-impl<'a, T: TokenType> Lexer<'a, T> {
+impl<'a> Lexer<'a> {
     pub fn new(json: &'a RawJson) -> Self {
         let curr = (!json.is_empty()).then(|| ((0, 0), json[0][0]));
-        Self {
-            json,
-            curr,
-            token: PhantomData,
-        }
+        Self { json, curr }
     }
 
     pub fn peek(&self) -> Option<Peeked> {
@@ -45,7 +35,7 @@ impl<'a, T: TokenType> Lexer<'a, T> {
 
     pub fn skip_white_space(&mut self) -> Option<Peeked> {
         while let Some(&(_, c)) = self.peek() {
-            if T::is_whitespace(c) {
+            if Token::tokenize(c) == Token::Whitespace {
                 self.next();
             } else {
                 break;
@@ -54,46 +44,36 @@ impl<'a, T: TokenType> Lexer<'a, T> {
         self.peek()
     }
 
-    pub fn lex1char(&mut self, token: T) -> anyhow::Result<Nexted> {
-        if let Some(&((_row, _col), c)) = self.skip_white_space() {
-            ensure!(T::token_type(c) == token, "expected {}, but {}", token, c);
+    pub fn lex1char(&mut self, token: Token) -> anyhow::Result<Nexted> {
+        if let Some(&(pos, c)) = self.skip_white_space() {
+            ensure!(
+                Token::tokenize(c) == token,
+                "{}: expected {token}, but '{c}'",
+                postring(pos)
+            );
             self.next()
                 .ok_or_else(|| unreachable!("previous peek ensure this next success"))
         } else {
-            bail!("unexpected EOF, but expected {}", token)
+            bail!("unexpected EOF, but expected {token}",)
         }
     }
-}
-impl<'a> Lexer<'a, ExtraToken> {
-    pub fn skip_line(&mut self) -> (Option<Peeked>, String) {
-        // FIXME use early return?
-        if let Some(&((start_row, _start_col), _c)) = self.peek() {
-            let mut content = String::new();
-            while let Some(&((row, _col), c)) = self.peek() {
-                if start_row < row {
-                    return (self.peek(), content);
-                } else {
-                    content.push(c);
-                    self.next();
-                }
-            }
-            (None, content)
-        } else {
-            (None, String::new())
-        }
+
+    pub fn is_next(&mut self, token: Token) -> bool {
+        self.skip_white_space()
+            .map(|&(_p, c)| Token::tokenize(c) == token)
+            .unwrap_or(false)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::token::SimpleToken;
 
     use super::*;
 
     #[test]
     fn test_json_read() {
         let json: RawJson = vec!["{", "\"a\": 1", "}"].into_iter().collect();
-        let mut lexer = Lexer::<SimpleToken>::new(&json);
+        let mut lexer = Lexer::new(&json);
         assert_eq!(lexer.peek(), Some(&((0, 0), '{')));
         assert_eq!(lexer.peek(), Some(&((0, 0), '{')));
         assert_eq!(lexer.peek(), Some(&((0, 0), '{')));
@@ -120,7 +100,7 @@ mod tests {
     fn test_skip_whitespace() {
         let json: RawJson = vec!["{", "    \"a\": 1", "}"].into_iter().collect();
         let expected = vec!['{', '"', 'a', '"', ':', '1', '}'];
-        let (mut i, mut lexer) = (0, Lexer::<SimpleToken>::new(&json));
+        let (mut i, mut lexer) = (0, Lexer::new(&json));
         while lexer.skip_white_space().is_some() {
             assert_eq!(lexer.next().unwrap().1, expected[i]);
             i += 1;
@@ -128,32 +108,29 @@ mod tests {
     }
 
     #[test]
-    fn test_skip_line() {
-        let json: RawJson = vec![
-            "{",
-            "# this is extra comment",
-            "\"a\": 1",
-            "}",
-            "# comment previous EOF",
-        ]
-        .into_iter()
-        .collect();
-        let mut lexer = Lexer::<ExtraToken>::new(&json);
-        assert_eq!(lexer.next(), Some(((0, 0), '{')));
-        assert_eq!(
-            lexer.skip_line(),
-            (Some(&((2, 0), '"')), "# this is extra comment".to_string())
-        );
-        assert_eq!(lexer.next(), Some(((2, 0), '"')));
-        assert_eq!(lexer.next(), Some(((2, 1), 'a')));
-        assert_eq!(lexer.next(), Some(((2, 2), '"')));
-        assert_eq!(lexer.next(), Some(((2, 3), ':')));
-        assert_eq!(lexer.next(), Some(((2, 4), ' ')));
-        assert_eq!(lexer.next(), Some(((2, 5), '1')));
-        assert_eq!(lexer.next(), Some(((3, 0), '}')));
-        assert_eq!(
-            lexer.skip_line(),
-            (None, "# comment previous EOF".to_string())
-        );
+    fn test_lex1char() {
+        let json: RawJson = vec!["{", "]"].into_iter().collect();
+        let mut lexer = Lexer::new(&json);
+        let ok = lexer.lex1char(Token::LeftBrace).unwrap();
+        assert_eq!(ok, ((0, 0), '{'));
+        let error = lexer.lex1char(Token::RightBrace).unwrap_err();
+        assert!(error.to_string().contains(&postring((1, 0))));
+        assert!(error.to_string().contains('}'));
+        assert!(error.to_string().contains(']'));
+        assert!(lexer.is_next(Token::RightBracket));
+        assert!(!lexer.is_next(Token::RightBrace));
+        let error = lexer.lex1char(Token::RightBrace).unwrap_err();
+        assert!(error.to_string().contains(&postring((1, 0))));
+        assert!(error.to_string().contains('}'));
+        assert!(error.to_string().contains(']'));
+        assert!(lexer.is_next(Token::RightBracket));
+        assert!(!lexer.is_next(Token::RightBrace));
+        let ok = lexer.lex1char(Token::RightBracket).unwrap();
+        assert_eq!(ok, ((1, 0), ']'));
+        let error = lexer.lex1char(Token::RightBrace).unwrap_err();
+        assert!(error.to_string().to_lowercase().contains("eof"));
+        assert!(error.to_string().contains('}'));
+        assert!(!lexer.is_next(Token::RightBracket));
+        assert!(!lexer.is_next(Token::RightBrace));
     }
 }
