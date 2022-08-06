@@ -4,7 +4,7 @@ mod lexer;
 mod parser;
 mod token;
 
-fn error_pos((row, col): (usize, usize)) -> String {
+fn postring((row, col): (usize, usize)) -> String {
     format!("line {} (col {})", row, col)
 }
 
