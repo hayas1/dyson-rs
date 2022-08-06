@@ -1,4 +1,4 @@
-use anyhow::{bail, ensure};
+use anyhow::{anyhow, bail, ensure};
 
 use crate::{json::RawJson, postr, token::Token};
 
@@ -44,13 +44,37 @@ impl<'a> Lexer<'a> {
         self.peek()
     }
 
-    pub fn lex1char(&mut self, token: Token) -> anyhow::Result<Nexted> {
+    /// read next expected token with skipping whitespace. this method's complexity is **O(len(ws))**.
+    pub fn lex_1_char(&mut self, token: Token) -> anyhow::Result<Nexted> {
         if let Some(&(pos, c)) = self.skip_white_space() {
-            ensure!(Token::tokenize(c) == token, "{}: expected {token}, but '{c}'", postr(pos));
+            ensure!(
+                Token::tokenize(c) == token,
+                "{}: unexpected {c}, but expected '{token}'",
+                postr(pos)
+            );
             self.next().ok_or_else(|| unreachable!("previous peek ensure this next success"))
         } else {
             bail!("unexpected EOF, but expected {token}",)
         }
+    }
+
+    /// read next `n` chars ***without*** skipping whitespace until line separator. this method's complexity is **O(n)**.
+    pub fn lex_n_chars(&mut self, n: usize) -> anyhow::Result<String> {
+        if n == 0 {
+            return Ok(String::new());
+        }
+        let &((sr, sl), _c) =
+            self.peek().ok_or_else(|| anyhow!("unexpected EOF, lex {n} chars"))?;
+        let mut result = String::new();
+        for _ in 0..n {
+            let ((r, _l), c) = self.next().ok_or_else(|| {
+                anyhow!("{}: unexpected EOF, unknown \"{result}\"", postr((sr, sl)))
+            })?;
+            (sr >= r).then(|| result.push(c)).ok_or_else(|| {
+                anyhow!("{}: unexpected line separator, unknown \"{result}\"", postr((sr, sl)))
+            })?;
+        }
+        Ok(result)
     }
 
     pub fn is_next(&mut self, token: Token) -> bool {
@@ -101,29 +125,42 @@ mod tests {
     }
 
     #[test]
-    fn test_lex1char() {
+    fn test_lex_1_char() {
         let json: RawJson = vec!["{", "]"].into_iter().collect();
         let mut lexer = Lexer::new(&json);
-        let ok = lexer.lex1char(Token::LeftBrace).unwrap();
+        let ok = lexer.lex_1_char(Token::LeftBrace).unwrap();
         assert_eq!(ok, ((0, 0), '{'));
-        let error = lexer.lex1char(Token::RightBrace).unwrap_err();
+        let error = lexer.lex_1_char(Token::RightBrace).unwrap_err();
         assert!(error.to_string().contains(&postr((1, 0))));
         assert!(error.to_string().contains('}'));
         assert!(error.to_string().contains(']'));
         assert!(lexer.is_next(Token::RightBracket));
         assert!(!lexer.is_next(Token::RightBrace));
-        let error = lexer.lex1char(Token::RightBrace).unwrap_err();
+        let error = lexer.lex_1_char(Token::RightBrace).unwrap_err();
         assert!(error.to_string().contains(&postr((1, 0))));
         assert!(error.to_string().contains('}'));
         assert!(error.to_string().contains(']'));
         assert!(lexer.is_next(Token::RightBracket));
         assert!(!lexer.is_next(Token::RightBrace));
-        let ok = lexer.lex1char(Token::RightBracket).unwrap();
+        let ok = lexer.lex_1_char(Token::RightBracket).unwrap();
         assert_eq!(ok, ((1, 0), ']'));
-        let error = lexer.lex1char(Token::RightBrace).unwrap_err();
+        let error = lexer.lex_1_char(Token::RightBrace).unwrap_err();
         assert!(error.to_string().to_lowercase().contains("eof"));
         assert!(error.to_string().contains('}'));
         assert!(!lexer.is_next(Token::RightBracket));
         assert!(!lexer.is_next(Token::RightBrace));
+    }
+
+    #[test]
+    fn test_lex_n_chars() {
+        let json = "[true,  fal\nse]".into();
+        let mut lexer = Lexer::new(&json);
+        assert_eq!(lexer.next(), Some(((0, 0), '[')));
+        let lex_4_chars = lexer.lex_n_chars(4).unwrap();
+        assert_eq!(lex_4_chars, "true");
+        assert_eq!(lexer.next(), Some(((0, 5), ',')));
+        assert_eq!(lexer.skip_white_space(), Some(&((0, 8), 'f')));
+        let lex_5_chars = lexer.lex_n_chars(5).unwrap_err();
+        assert!(lex_5_chars.to_string().contains("fal"));
     }
 }

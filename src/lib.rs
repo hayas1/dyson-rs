@@ -11,5 +11,5 @@ pub use crate::parser::*;
 pub use crate::token::*;
 
 fn postr((row, col): (usize, usize)) -> String {
-    format!("line {} (col {})", row, col)
+    format!("line {} (col {})", row + 1, col + 1)
 }
