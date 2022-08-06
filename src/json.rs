@@ -38,9 +38,7 @@ impl RawJson {
 
 impl FromIterator<String> for RawJson {
     fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> Self {
-        Self {
-            json: iter.into_iter().map(|s| s.chars().collect()).collect(),
-        }
+        Self { json: iter.into_iter().map(|s| s.chars().collect()).collect() }
     }
 }
 impl<'a> FromIterator<&'a str> for RawJson {
@@ -56,27 +54,18 @@ impl From<String> for RawJson {
 }
 impl From<&str> for RawJson {
     fn from(s: &str) -> Self {
-        s.replace("\r\n", "\n")
-            .split('\n')
-            .filter(|l| !l.is_empty())
-            .collect()
+        s.replace("\r\n", "\n").split('\n').filter(|l| !l.is_empty()).collect()
     }
 }
 
 impl From<RawJson> for String {
     fn from(rj: RawJson) -> Self {
-        rj.into_iter()
-            .map(|l| l.into_iter().collect::<String>())
-            .collect::<Vec<_>>()
-            .join("\n")
+        rj.into_iter().map(|l| l.into_iter().collect::<String>()).collect::<Vec<_>>().join("\n")
     }
 }
 impl ToString for RawJson {
     fn to_string(&self) -> String {
-        self.iter()
-            .map(|l| l.iter().collect::<String>())
-            .collect::<Vec<_>>()
-            .join("\n")
+        self.iter().map(|l| l.iter().collect::<String>()).collect::<Vec<_>>().join("\n")
     }
 }
 

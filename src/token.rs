@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 #[derive(PartialEq, Eq, Debug)]
 pub enum Token {
     LeftBrace,
@@ -18,7 +16,7 @@ pub enum Token {
     Whitespace,
     Undecided(char),
 }
-impl Display for Token {
+impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::LeftBrace => write!(f, "LeftBrace({{)"),
@@ -58,5 +56,18 @@ impl Token {
             ' ' | '\n' | '\r' | '\t' => Self::Whitespace,
             c => Self::Undecided(c),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_undecided() {
+        assert_eq!(Token::tokenize('t'), Token::Undecided('t'));
+        assert_eq!(Token::tokenize('f'), Token::Undecided('f'));
+        assert_eq!(Token::tokenize('n'), Token::Undecided('n'));
     }
 }

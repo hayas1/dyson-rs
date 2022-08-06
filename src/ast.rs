@@ -22,14 +22,7 @@ impl ToString for Value {
                     .join(", "),
             ),
             Value::Array(array) => {
-                format!(
-                    "[{}]",
-                    array
-                        .iter()
-                        .map(|v| v.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
+                format!("[{}]", array.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", "))
             }
             Value::Bool(bool) => bool.to_string(),
             Value::Null => "null".to_string(),

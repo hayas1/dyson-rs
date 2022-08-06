@@ -1,6 +1,6 @@
 use anyhow::{bail, ensure};
 
-use crate::{json::RawJson, postring, token::Token};
+use crate::{json::RawJson, postr, token::Token};
 
 pub type Nexted = ((usize, usize), char); // next is not verb but...
 pub type Peeked<'a> = &'a Nexted;
@@ -46,22 +46,15 @@ impl<'a> Lexer<'a> {
 
     pub fn lex1char(&mut self, token: Token) -> anyhow::Result<Nexted> {
         if let Some(&(pos, c)) = self.skip_white_space() {
-            ensure!(
-                Token::tokenize(c) == token,
-                "{}: expected {token}, but '{c}'",
-                postring(pos)
-            );
-            self.next()
-                .ok_or_else(|| unreachable!("previous peek ensure this next success"))
+            ensure!(Token::tokenize(c) == token, "{}: expected {token}, but '{c}'", postr(pos));
+            self.next().ok_or_else(|| unreachable!("previous peek ensure this next success"))
         } else {
             bail!("unexpected EOF, but expected {token}",)
         }
     }
 
     pub fn is_next(&mut self, token: Token) -> bool {
-        self.skip_white_space()
-            .map(|&(_p, c)| Token::tokenize(c) == token)
-            .unwrap_or(false)
+        self.skip_white_space().map(|&(_p, c)| Token::tokenize(c) == token).unwrap_or(false)
     }
 }
 
@@ -114,13 +107,13 @@ mod tests {
         let ok = lexer.lex1char(Token::LeftBrace).unwrap();
         assert_eq!(ok, ((0, 0), '{'));
         let error = lexer.lex1char(Token::RightBrace).unwrap_err();
-        assert!(error.to_string().contains(&postring((1, 0))));
+        assert!(error.to_string().contains(&postr((1, 0))));
         assert!(error.to_string().contains('}'));
         assert!(error.to_string().contains(']'));
         assert!(lexer.is_next(Token::RightBracket));
         assert!(!lexer.is_next(Token::RightBrace));
         let error = lexer.lex1char(Token::RightBrace).unwrap_err();
-        assert!(error.to_string().contains(&postring((1, 0))));
+        assert!(error.to_string().contains(&postr((1, 0))));
         assert!(error.to_string().contains('}'));
         assert!(error.to_string().contains(']'));
         assert!(lexer.is_next(Token::RightBracket));

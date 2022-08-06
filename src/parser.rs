@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, bail, ensure, Context as _};
 
-use crate::{ast::Value, json::RawJson, lexer::Lexer, postring, token::Token};
+use crate::{ast::Value, json::RawJson, lexer::Lexer, postr, token::Token};
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -10,9 +10,7 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn new(json: &'a RawJson) -> Self {
-        Self {
-            lexer: Lexer::new(json),
-        }
+        Self { lexer: Lexer::new(json) }
     }
 
     pub fn parse_value(&mut self) -> anyhow::Result<Value> {
@@ -33,11 +31,7 @@ impl<'a> Parser<'a> {
         } else if matches!(tokenized, Token::Quotation) {
             self.parse_string()
         } else {
-            bail!(
-                "{}: unexpected token \"{}\", while parse value",
-                postring(pos),
-                c
-            )
+            bail!("{}: unexpected token \"{}\", while parse value", postr(pos), c)
         }
     }
 
@@ -48,26 +42,16 @@ impl<'a> Parser<'a> {
         let mut object = HashMap::new();
         self.lexer.lex1char(Token::LeftBrace)?;
         while !self.lexer.is_next(Token::RightBrace) {
-            let (pos, quotation) = self
-                .lexer
-                .next()
-                .ok_or_else(|| anyhow!("unexpected EOF, start parse object"))?;
+            let (pos, quotation) =
+                self.lexer.next().ok_or_else(|| anyhow!("unexpected EOF, start parse object"))?;
             if matches!(Token::tokenize(quotation), Token::Quotation) {
-                let key = self
-                    .parse_string()
-                    .with_context(|| format!("{}: key", postring(pos)))?;
+                let key = self.parse_string().with_context(|| format!("{}: key", postr(pos)))?;
                 self.lexer
                     .lex1char(Token::Colon)
-                    .with_context(|| format!("{}: while parse object", postring(pos)))?;
-                let value = self
-                    .parse_value()
-                    .with_context(|| format!("{}: value", postring(pos)))?;
+                    .with_context(|| format!("{}: while parse object", postr(pos)))?;
+                let value = self.parse_value().with_context(|| format!("{}: value", postr(pos)))?;
                 if let Ok((p, _comma)) = self.lexer.lex1char(Token::Comma) {
-                    ensure!(
-                        !self.lexer.is_next(Token::RightBrace),
-                        "{}: trailing comma",
-                        postring(p)
-                    )
+                    ensure!(!self.lexer.is_next(Token::RightBrace), "{}: trailing comma", postr(p))
                 }
                 object.insert(key.to_string(), value);
             }
