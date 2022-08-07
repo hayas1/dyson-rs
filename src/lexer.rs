@@ -10,7 +10,7 @@ pub type Nexted = ((usize, usize), char); // next is not verb but...
 pub type Peeked<'a> = &'a Nexted;
 
 pub struct Lexer<'a> {
-    json: &'a RawJson,
+    pub json: &'a RawJson,
     curr: Option<((usize, usize), char)>,
 }
 impl<'a> Iterator for Lexer<'a> {
@@ -52,8 +52,8 @@ impl<'a> Lexer<'a> {
 
     /// read next expected token. this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
     /// if success, lexer cursor move to next, but if error, lexer cursor do not move next (skip whitespace only).
-    pub fn lex_1_char<T: Token>(&mut self, token: T, skip_whitespace: bool) -> anyhow::Result<Nexted> {
-        if let Some(&(pos, c)) = if skip_whitespace { self.skip_whitespace() } else { self.peek() } {
+    pub fn lex_1_char<T: Token>(&mut self, token: T, skip_ws: bool) -> anyhow::Result<Nexted> {
+        if let Some(&(pos, c)) = if skip_ws { self.skip_whitespace() } else { self.peek() } {
             ensure!(T::tokenize(c) == token, "{}: unexpected '{c}', but expected '{token}'", postr(pos));
             self.next().ok_or_else(|| unreachable!("previous peek ensure this next success"))
         } else {
@@ -80,8 +80,8 @@ impl<'a> Lexer<'a> {
     }
 
     /// peek next token is equal to expected token. this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
-    pub fn is_next<T: Token>(&mut self, token: T, skip_whitespace: bool) -> bool {
-        if skip_whitespace { self.skip_whitespace() } else { self.peek() }
+    pub fn is_next<T: Token>(&mut self, token: T, skip_ws: bool) -> bool {
+        if skip_ws { self.skip_whitespace() } else { self.peek() }
             .map(|&(_p, c)| T::tokenize(c) == token)
             .unwrap_or(false)
     }
