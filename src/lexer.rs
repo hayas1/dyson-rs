@@ -47,11 +47,7 @@ impl<'a> Lexer<'a> {
     /// read next expected token with skipping whitespace. this method's complexity is **O(len(ws))**.
     pub fn lex_1_char(&mut self, token: Token) -> anyhow::Result<Nexted> {
         if let Some(&(pos, c)) = self.skip_whitespace() {
-            ensure!(
-                Token::tokenize(c) == token,
-                "{}: unexpected {c}, but expected '{token}'",
-                postr(pos)
-            );
+            ensure!(Token::tokenize(c) == token, "{}: unexpected {c}, but expected '{token}'", postr(pos));
             self.next().ok_or_else(|| unreachable!("previous peek ensure this next success"))
         } else {
             bail!("unexpected EOF, but expected {token}",)
@@ -63,16 +59,14 @@ impl<'a> Lexer<'a> {
         if n == 0 {
             return Ok(String::new());
         }
-        let &((sr, sl), _c) =
-            self.peek().ok_or_else(|| anyhow!("unexpected EOF, lex {n} chars"))?;
+        let &((sr, sl), _c) = self.peek().ok_or_else(|| anyhow!("unexpected EOF, lex {n} chars"))?;
         let mut result = String::new();
         for _ in 0..n {
-            let ((r, _l), c) = self.next().ok_or_else(|| {
-                anyhow!("{}: unexpected EOF, unknown \"{result}\"", postr((sr, sl)))
-            })?;
-            (sr >= r).then(|| result.push(c)).ok_or_else(|| {
-                anyhow!("{}: unexpected line separator, unknown \"{result}\"", postr((sr, sl)))
-            })?;
+            let ((r, _l), c) =
+                self.next().ok_or_else(|| anyhow!("{}: unexpected EOF, unknown \"{result}\"", postr((sr, sl))))?;
+            (sr >= r)
+                .then(|| result.push(c))
+                .ok_or_else(|| anyhow!("{}: unexpected line separator, unknown \"{result}\"", postr((sr, sl))))?;
         }
         Ok(result)
     }

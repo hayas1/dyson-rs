@@ -15,11 +15,7 @@ impl ToString for Value {
         match self {
             Value::Object(object) => format!(
                 "{{{}}}",
-                object
-                    .iter()
-                    .map(|(k, v)| format!("\"{k}\": {}", v.to_string()))
-                    .collect::<Vec<_>>()
-                    .join(", "),
+                object.iter().map(|(k, v)| format!("\"{k}\": {}", v.to_string())).collect::<Vec<_>>().join(", "),
             ),
             Value::Array(array) => {
                 format!("[{}]", array.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", "))

@@ -84,8 +84,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_bool(&mut self) -> anyhow::Result<Value> {
-        let &(pos, tf) =
-            self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, start parse bool"))?;
+        let &(pos, tf) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, start parse bool"))?;
         if Token::tokenize(tf) == Token::Undecided('t') {
             let tru = self.lexer.lex_n_chars(4)?;
             ensure!("true" == tru, "{}: unexpected \"{tru}\", but expected \"true\"", postr(pos));
@@ -100,8 +99,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_null(&mut self) -> anyhow::Result<Value> {
-        let &(pos, n) =
-            self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, start parse null"))?;
+        let &(pos, n) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, start parse null"))?;
         if Token::tokenize(n) == Token::Undecided('n') {
             let null = self.lexer.lex_n_chars(4)?;
             ensure!("null" == null, "{}: unexpected \"{null}\", but expected \"null\"", postr(pos));
@@ -115,8 +113,7 @@ impl<'a> Parser<'a> {
         let mut string = String::new();
         let ((row, col), _quotation) = self.lexer.lex_1_char(Token::Quotation)?;
         while !self.lexer.is_next(Token::Quotation) {
-            let &((r, _c), c) =
-                self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, while parse string"))?;
+            let &((r, _c), c) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, while parse string"))?;
             if row < r {
                 bail!("{}: open string literal, must be closed by '\"'", postr((row, col)));
             } else if self.lexer.is_next(Token::ReverseSolidus) {
@@ -132,8 +129,7 @@ impl<'a> Parser<'a> {
 
     pub fn parse_escape_sequence(&mut self) -> anyhow::Result<char> {
         let (p, _reverse_solidus) = self.lexer.lex_1_char(Token::ReverseSolidus)?;
-        let (_p, escape) =
-            self.lexer.next().ok_or_else(|| anyhow!("unexpected EOF, while parse escape"))?;
+        let (_, escape) = self.lexer.next().ok_or_else(|| anyhow!("unexpected EOF, while parse escape"))?;
         // FIXME better match case
         match Token::tokenize_with_context(escape, Some(Context::ParseString)) {
             Token::Quotation => Ok('"'),
@@ -150,9 +146,8 @@ impl<'a> Parser<'a> {
             Token::HorizontalTab => Ok('\t'),
             Token::Unicode => {
                 let hex4digits = self.lexer.lex_n_chars(4)?;
-                char::from_u32(u32::from_str_radix(&hex4digits[..], 16)?).ok_or_else(|| {
-                    anyhow!("{}: cannot \\{hex4digits} convert to unicode", postr(p))
-                })
+                char::from_u32(u32::from_str_radix(&hex4digits[..], 16)?)
+                    .ok_or_else(|| anyhow!("{}: cannot \\{hex4digits} convert to unicode", postr(p)))
             }
             Token::Unexpected(c) => bail!("{}: unexpected escape sequence{c}", postr(p)),
             _ => unreachable!("unexpected escape sequence is Token::Unexpected"),
@@ -209,8 +204,7 @@ mod tests {
 
         let (tru3, f4lse) = ("tru3".into(), "f4lse".into());
         let (mut tru_parser, mut fal_parser) = (Parser::new(&tru3), Parser::new(&f4lse));
-        let (tru3_err, f4lse_err) =
-            (tru_parser.parse_bool().unwrap_err(), fal_parser.parse_bool().unwrap_err());
+        let (tru3_err, f4lse_err) = (tru_parser.parse_bool().unwrap_err(), fal_parser.parse_bool().unwrap_err());
         assert!(tru3_err.to_string().contains("true"));
         assert!(tru3_err.to_string().contains("tru3"));
         assert!(f4lse_err.to_string().contains("false"));
