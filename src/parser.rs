@@ -20,8 +20,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_value(&mut self) -> anyhow::Result<Value> {
-        let peeked = self.lexer.skip_whitespace();
-        let &(pos, c) = peeked.ok_or_else(|| anyhow!("unexpected EOF, start parse value"))?;
+        let &(pos, c) = self.lexer.skip_whitespace().ok_or_else(|| anyhow!("unexpected EOF, start parse value"))?;
 
         let tokenized = MainToken::tokenize(c);
         if matches!(tokenized, MainToken::LeftBrace) {
@@ -43,18 +42,18 @@ impl<'a> Parser<'a> {
 
     pub fn parse_object(&mut self) -> anyhow::Result<Value> {
         let mut object = HashMap::new();
-        self.lexer.lex_1_char(MainToken::LeftBrace, true)?;
+        let (pos, _left_brace) = self.lexer.lex_1_char(MainToken::LeftBrace, true)?;
         while !self.lexer.is_next(MainToken::RightBrace, true) {
             if self.lexer.is_next(MainToken::Quotation, true) {
                 let key = self.parse_string().context("while parse object's key")?;
                 self.lexer.lex_1_char(MainToken::Colon, true).context("while parse object")?;
                 let value = self.parse_value().context("while parse object's value")?;
 
+                let is_object_end = self.lexer.is_next(MainToken::RightBrace, true);
                 if let Ok((p, _comma)) = self.lexer.lex_1_char(MainToken::Comma, true) {
-                    let is_object_end = self.lexer.is_next(MainToken::RightBrace, true);
                     ensure!(!is_object_end, "{}: trailing comma", postr(p));
                 } else {
-                    // TODO no comma
+                    ensure!(is_object_end, "{}: object should be end with '}}'", postr(pos));
                 }
 
                 object.insert(key.to_string(), value);
@@ -66,15 +65,15 @@ impl<'a> Parser<'a> {
 
     pub fn parse_array(&mut self) -> anyhow::Result<Value> {
         let mut array = Vec::new();
-        self.lexer.lex_1_char(MainToken::LeftBracket, true)?;
+        let (pos, _left_bracket) = self.lexer.lex_1_char(MainToken::LeftBracket, true)?;
         while !self.lexer.is_next(MainToken::RightBracket, true) {
             let value = self.parse_value()?;
 
+            let is_array_end = self.lexer.is_next(MainToken::RightBracket, true);
             if let Ok((p, _comma)) = self.lexer.lex_1_char(MainToken::Comma, true) {
-                let is_array_end = self.lexer.is_next(MainToken::RightBracket, true);
                 ensure!(!is_array_end, "{}: trailing comma", postr(p));
             } else {
-                // TODO no comma
+                ensure!(is_array_end, "{}: array should be end with ']'", postr(pos));
             }
 
             array.push(value);
