@@ -33,7 +33,7 @@ impl<'a> Lexer<'a> {
         self.curr.as_ref()
     }
 
-    pub fn skip_white_space(&mut self) -> Option<Peeked> {
+    pub fn skip_whitespace(&mut self) -> Option<Peeked> {
         while let Some(&(_, c)) = self.peek() {
             if Token::tokenize(c) == Token::Whitespace {
                 self.next();
@@ -46,7 +46,7 @@ impl<'a> Lexer<'a> {
 
     /// read next expected token with skipping whitespace. this method's complexity is **O(len(ws))**.
     pub fn lex_1_char(&mut self, token: Token) -> anyhow::Result<Nexted> {
-        if let Some(&(pos, c)) = self.skip_white_space() {
+        if let Some(&(pos, c)) = self.skip_whitespace() {
             ensure!(
                 Token::tokenize(c) == token,
                 "{}: unexpected {c}, but expected '{token}'",
@@ -77,8 +77,9 @@ impl<'a> Lexer<'a> {
         Ok(result)
     }
 
+    /// peek next token is equal to expected token with skipping whitespace. this method's complexity is **O(len(ws))**.
     pub fn is_next(&mut self, token: Token) -> bool {
-        self.skip_white_space().map(|&(_p, c)| Token::tokenize(c) == token).unwrap_or(false)
+        self.skip_whitespace().map(|&(_p, c)| Token::tokenize(c) == token).unwrap_or(false)
     }
 }
 
@@ -118,7 +119,7 @@ mod tests {
         let json: RawJson = vec!["{", "    \"a\": 1", "}"].into_iter().collect();
         let expected = vec!['{', '"', 'a', '"', ':', '1', '}'];
         let (mut i, mut lexer) = (0, Lexer::new(&json));
-        while lexer.skip_white_space().is_some() {
+        while lexer.skip_whitespace().is_some() {
             assert_eq!(lexer.next().unwrap().1, expected[i]);
             i += 1;
         }
@@ -159,7 +160,7 @@ mod tests {
         let lex_4_chars = lexer.lex_n_chars(4).unwrap();
         assert_eq!(lex_4_chars, "true");
         assert_eq!(lexer.next(), Some(((0, 5), ',')));
-        assert_eq!(lexer.skip_white_space(), Some(&((0, 8), 'f')));
+        assert_eq!(lexer.skip_whitespace(), Some(&((0, 8), 'f')));
         let lex_5_chars = lexer.lex_n_chars(5).unwrap_err();
         assert!(lex_5_chars.to_string().contains("fal"));
     }

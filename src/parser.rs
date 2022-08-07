@@ -2,7 +2,13 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, bail, ensure, Context as _};
 
-use crate::{ast::Value, json::RawJson, lexer::Lexer, postr, token::Token};
+use crate::{
+    ast::Value,
+    json::RawJson,
+    lexer::Lexer,
+    postr,
+    token::{Context, Token},
+};
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -14,7 +20,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_value(&mut self) -> anyhow::Result<Value> {
-        let peeked = self.lexer.skip_white_space();
+        let peeked = self.lexer.skip_whitespace();
         let &(pos, c) = peeked.ok_or_else(|| anyhow!("unexpected EOF, start parse value"))?;
 
         let tokenized = Token::tokenize(c);
@@ -43,9 +49,14 @@ impl<'a> Parser<'a> {
                 let key = self.parse_string().context("while parse object's key")?;
                 self.lexer.lex_1_char(Token::Colon).context("while parse object")?;
                 let value = self.parse_value().context("while parse object's value")?;
+
                 if let Ok((p, _comma)) = self.lexer.lex_1_char(Token::Comma) {
-                    ensure!(!self.lexer.is_next(Token::RightBrace), "{}: trailing comma", postr(p));
+                    let is_object_end = self.lexer.is_next(Token::RightBrace);
+                    ensure!(!is_object_end, "{}: trailing comma", postr(p));
+                } else {
+                    // TODO no comma
                 }
+
                 object.insert(key.to_string(), value);
             }
         }
@@ -58,9 +69,14 @@ impl<'a> Parser<'a> {
         self.lexer.lex_1_char(Token::LeftBracket)?;
         while !self.lexer.is_next(Token::RightBracket) {
             let value = self.parse_value()?;
+
             if let Ok((p, _comma)) = self.lexer.lex_1_char(Token::Comma) {
-                ensure!(!self.lexer.is_next(Token::RightBracket), "{}: trailing comma", postr(p));
+                let is_array_end = self.lexer.is_next(Token::RightBracket);
+                ensure!(!is_array_end, "{}: trailing comma", postr(p));
+            } else {
+                // TODO no comma
             }
+
             array.push(value);
         }
         self.lexer.lex_1_char(Token::RightBracket)?;
@@ -96,8 +112,51 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_string(&mut self) -> anyhow::Result<Value> {
-        // TODO
-        Ok(Value::String("".to_string()))
+        let mut string = String::new();
+        let ((row, col), _quotation) = self.lexer.lex_1_char(Token::Quotation)?;
+        while !self.lexer.is_next(Token::Quotation) {
+            let &((r, _c), c) =
+                self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, while parse string"))?;
+            if row < r {
+                bail!("{}: open string literal, must be closed by '\"'", postr((row, col)));
+            } else if self.lexer.is_next(Token::ReverseSolidus) {
+                string.push(self.parse_escape_sequence()?);
+            } else {
+                string.push(c);
+                self.lexer.next();
+            }
+        }
+        self.lexer.lex_1_char(Token::Quotation)?;
+        Ok(Value::String(string))
+    }
+
+    pub fn parse_escape_sequence(&mut self) -> anyhow::Result<char> {
+        let (p, _reverse_solidus) = self.lexer.lex_1_char(Token::ReverseSolidus)?;
+        let (_p, escape) =
+            self.lexer.next().ok_or_else(|| anyhow!("unexpected EOF, while parse escape"))?;
+        // FIXME better match case
+        match Token::tokenize_with_context(escape, Some(Context::ParseString)) {
+            Token::Quotation => Ok('"'),
+            Token::ReverseSolidus => Ok('\\'),
+            Token::Solidus => Ok('/'),
+            Token::Backspace => {
+                bail!("{}: unsupported {} escape sequence in Rust", Token::Backspace, postr(p))
+            }
+            Token::Formfeed => {
+                bail!("{}: unsupported {} escape sequence in Rust", Token::Formfeed, postr(p))
+            }
+            Token::Linefeed => Ok('\n'),
+            Token::CarriageReturn => Ok('\r'),
+            Token::HorizontalTab => Ok('\t'),
+            Token::Unicode => {
+                let hex4digits = self.lexer.lex_n_chars(4)?;
+                char::from_u32(u32::from_str_radix(&hex4digits[..], 16)?).ok_or_else(|| {
+                    anyhow!("{}: cannot \\{hex4digits} convert to unicode", postr(p))
+                })
+            }
+            Token::Unexpected(c) => bail!("{}: unexpected escape sequence{c}", postr(p)),
+            _ => unreachable!("unexpected escape sequence is Token::Unexpected"),
+        }
     }
 
     pub fn parse_number(&mut self) -> anyhow::Result<Value> {
@@ -138,23 +197,68 @@ mod tests {
 
     #[test]
     fn test_parse_bool() {
-        let (itr, ifa) = ("true".into(), "false".into());
-        let (mut tru_parser, mut fal_parser) = (Parser::new(&itr), Parser::new(&ifa));
-        let (tru, fal) = (tru_parser.parse_bool(), fal_parser.parse_bool());
-        if let (Value::Bool(t), Value::Bool(f)) = (tru.unwrap(), fal.unwrap()) {
+        let (tru, fal) = ("true".into(), "false".into());
+        let (mut tru_parser, mut fal_parser) = (Parser::new(&tru), Parser::new(&fal));
+        let (tru, fal) = (tru_parser.parse_bool().unwrap(), fal_parser.parse_bool().unwrap());
+        if let (Value::Bool(t), Value::Bool(f)) = (tru, fal) {
             assert!(t && !f);
         } else {
             unreachable!("\"true\" and \"false\" must be parsed as bool immediate");
         }
         assert_eq!((tru_parser.lexer.next(), fal_parser.lexer.next()), (None, None));
+
+        let (tru3, f4lse) = ("tru3".into(), "f4lse".into());
+        let (mut tru_parser, mut fal_parser) = (Parser::new(&tru3), Parser::new(&f4lse));
+        let (tru3_err, f4lse_err) =
+            (tru_parser.parse_bool().unwrap_err(), fal_parser.parse_bool().unwrap_err());
+        assert!(tru3_err.to_string().contains("true"));
+        assert!(tru3_err.to_string().contains("tru3"));
+        assert!(f4lse_err.to_string().contains("false"));
+        assert!(f4lse_err.to_string().contains("f4lse"));
+        assert_eq!((tru_parser.lexer.next(), fal_parser.lexer.next()), (None, None));
     }
 
     #[test]
     fn test_parse_null() {
-        let inu = "null".into();
-        let mut parser = Parser::new(&inu);
-        let null = parser.parse_null();
-        assert_eq!(Value::Null, null.unwrap());
+        let null = "null".into();
+        let mut parser = Parser::new(&null);
+        let null = parser.parse_null().unwrap();
+        assert_eq!(null, Value::Null);
+        assert_eq!(parser.lexer.next(), None);
+
+        let nuli = "nuli".into();
+        let mut parser = Parser::new(&nuli);
+        let nuli = parser.parse_null().unwrap_err();
+        assert!(nuli.to_string().contains("null"));
+        assert!(nuli.to_string().contains("nuli"));
+        assert_eq!(parser.lexer.next(), None);
+    }
+
+    #[test]
+    fn test_parse_string() {
+        let string = r#""Rust""#.into();
+        let mut parser = Parser::new(&string);
+        let string = parser.parse_string().unwrap();
+        assert_eq!(string, Value::String("Rust".to_string()));
+        assert_eq!(parser.lexer.next(), None);
+
+        let solidus = r#""Ru\/st""#.into();
+        let mut parser = Parser::new(&solidus);
+        let solidus = parser.parse_string().unwrap();
+        assert_eq!(solidus, Value::String("Ru/st".to_string()));
+        assert_eq!(parser.lexer.next(), None);
+
+        let linefeed = r#""Ru\nst""#.into();
+        let mut parser = Parser::new(&linefeed);
+        let linefeed = parser.parse_string().unwrap();
+        assert_eq!(linefeed, Value::String("Ru\nst".to_string()));
+        assert_eq!(parser.lexer.next(), None);
+
+        let unicode = r#""R\u00f9st""#.into();
+        let mut parser = Parser::new(&unicode);
+        let unicode = parser.parse_string().unwrap();
+        assert_eq!(unicode, Value::String("Rùst".to_string()));
+        assert_eq!(parser.lexer.next(), None);
     }
 
     #[test]
