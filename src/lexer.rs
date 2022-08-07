@@ -1,6 +1,10 @@
 use anyhow::{anyhow, bail, ensure};
 
-use crate::{json::RawJson, postr, token::Token};
+use crate::{
+    json::RawJson,
+    postr,
+    token::{MainToken, Token},
+};
 
 pub type Nexted = ((usize, usize), char); // next is not verb but...
 pub type Peeked<'a> = &'a Nexted;
@@ -33,9 +37,11 @@ impl<'a> Lexer<'a> {
         self.curr.as_ref()
     }
 
+    /// read next token with skip whitespace. this method's complexity is **O(len(ws))**, but first call of this method
+    /// will move cursor to end of whitespace, so consecutive call of this method will be **O(1)** complexity.
     pub fn skip_whitespace(&mut self) -> Option<Peeked> {
         while let Some(&(_, c)) = self.peek() {
-            if Token::tokenize(c) == Token::Whitespace {
+            if MainToken::tokenize(c) == MainToken::Whitespace {
                 self.next();
             } else {
                 break;
@@ -44,10 +50,11 @@ impl<'a> Lexer<'a> {
         self.peek()
     }
 
-    /// read next expected token with skipping whitespace. this method's complexity is **O(len(ws))**.
-    pub fn lex_1_char(&mut self, token: Token) -> anyhow::Result<Nexted> {
-        if let Some(&(pos, c)) = self.skip_whitespace() {
-            ensure!(Token::tokenize(c) == token, "{}: unexpected {c}, but expected '{token}'", postr(pos));
+    /// read next expected token. this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
+    /// if success, lexer cursor move to next, but if error, lexer cursor do not move next (skip whitespace only).
+    pub fn lex_1_char<T: Token>(&mut self, token: T, skip_whitespace: bool) -> anyhow::Result<Nexted> {
+        if let Some(&(pos, c)) = if skip_whitespace { self.skip_whitespace() } else { self.peek() } {
+            ensure!(T::tokenize(c) == token, "{}: unexpected '{c}', but expected '{token}'", postr(pos));
             self.next().ok_or_else(|| unreachable!("previous peek ensure this next success"))
         } else {
             bail!("unexpected EOF, but expected {token}",)
@@ -55,6 +62,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// read next `n` chars ***without*** skipping whitespace until line separator. this method's complexity is **O(n)**.
+    /// if success, lexer cursor move `n` step, but if error, lexer cursor will stop error ocurred position.
     pub fn lex_n_chars(&mut self, n: usize) -> anyhow::Result<String> {
         if n == 0 {
             return Ok(String::new());
@@ -71,15 +79,16 @@ impl<'a> Lexer<'a> {
         Ok(result)
     }
 
-    /// peek next token is equal to expected token with skipping whitespace. this method's complexity is **O(len(ws))**.
-    pub fn is_next(&mut self, token: Token) -> bool {
-        self.skip_whitespace().map(|&(_p, c)| Token::tokenize(c) == token).unwrap_or(false)
+    /// peek next token is equal to expected token. this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
+    pub fn is_next<T: Token>(&mut self, token: T, skip_whitespace: bool) -> bool {
+        if skip_whitespace { self.skip_whitespace() } else { self.peek() }
+            .map(|&(_p, c)| T::tokenize(c) == token)
+            .unwrap_or(false)
     }
 }
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[test]
@@ -121,29 +130,33 @@ mod tests {
 
     #[test]
     fn test_lex_1_char() {
-        let json: RawJson = vec!["{", "]"].into_iter().collect();
+        let json: RawJson = vec![" {", " ]"].into_iter().collect();
         let mut lexer = Lexer::new(&json);
-        let ok = lexer.lex_1_char(Token::LeftBrace).unwrap();
-        assert_eq!(ok, ((0, 0), '{'));
-        let error = lexer.lex_1_char(Token::RightBrace).unwrap_err();
-        assert!(error.to_string().contains(&postr((1, 0))));
+        let error = lexer.lex_1_char(MainToken::LeftBrace, false).unwrap_err();
+        assert!(error.to_string().contains(&postr((0, 0))));
+        assert!(error.to_string().contains("' '"));
+        assert!(error.to_string().contains('{'));
+        let ok = lexer.lex_1_char(MainToken::LeftBrace, true).unwrap();
+        assert_eq!(ok, ((0, 1), '{'));
+        let error = lexer.lex_1_char(MainToken::RightBrace, true).unwrap_err();
+        assert!(error.to_string().contains(&postr((1, 1))));
         assert!(error.to_string().contains('}'));
         assert!(error.to_string().contains(']'));
-        assert!(lexer.is_next(Token::RightBracket));
-        assert!(!lexer.is_next(Token::RightBrace));
-        let error = lexer.lex_1_char(Token::RightBrace).unwrap_err();
-        assert!(error.to_string().contains(&postr((1, 0))));
+        assert!(lexer.is_next(MainToken::RightBracket, true));
+        assert!(!lexer.is_next(MainToken::RightBrace, true));
+        let error = lexer.lex_1_char(MainToken::RightBrace, true).unwrap_err();
+        assert!(error.to_string().contains(&postr((1, 1))));
         assert!(error.to_string().contains('}'));
         assert!(error.to_string().contains(']'));
-        assert!(lexer.is_next(Token::RightBracket));
-        assert!(!lexer.is_next(Token::RightBrace));
-        let ok = lexer.lex_1_char(Token::RightBracket).unwrap();
-        assert_eq!(ok, ((1, 0), ']'));
-        let error = lexer.lex_1_char(Token::RightBrace).unwrap_err();
+        assert!(lexer.is_next(MainToken::RightBracket, true));
+        assert!(!lexer.is_next(MainToken::RightBrace, true));
+        let ok = lexer.lex_1_char(MainToken::RightBracket, true).unwrap();
+        assert_eq!(ok, ((1, 1), ']'));
+        let error = lexer.lex_1_char(MainToken::RightBrace, true).unwrap_err();
         assert!(error.to_string().to_lowercase().contains("eof"));
         assert!(error.to_string().contains('}'));
-        assert!(!lexer.is_next(Token::RightBracket));
-        assert!(!lexer.is_next(Token::RightBrace));
+        assert!(!lexer.is_next(MainToken::RightBracket, true));
+        assert!(!lexer.is_next(MainToken::RightBrace, true));
     }
 
     #[test]

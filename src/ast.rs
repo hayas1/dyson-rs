@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Debug)]
 pub enum Value {
     Object(HashMap<String, Value>),
     Array(Vec<Value>),
     Bool(bool),
     Null,
     String(String),
-    Number(String),
+    Integer(u64),
+    Float(f64),
 }
 
 impl ToString for Value {
@@ -23,7 +24,8 @@ impl ToString for Value {
             Value::Bool(bool) => bool.to_string(),
             Value::Null => "null".to_string(),
             Value::String(string) => string.to_string(),
-            Value::Number(number) => number.to_string(),
+            Value::Integer(integer) => integer.to_string(),
+            Value::Float(float) => float.to_string(),
         }
     }
 }

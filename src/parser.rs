@@ -7,7 +7,7 @@ use crate::{
     json::RawJson,
     lexer::Lexer,
     postr,
-    token::{Context, Token},
+    token::{MainToken, NumberToken, StringToken, Token},
 };
 
 pub struct Parser<'a> {
@@ -23,18 +23,18 @@ impl<'a> Parser<'a> {
         let peeked = self.lexer.skip_whitespace();
         let &(pos, c) = peeked.ok_or_else(|| anyhow!("unexpected EOF, start parse value"))?;
 
-        let tokenized = Token::tokenize(c);
-        if matches!(tokenized, Token::LeftBrace) {
+        let tokenized = MainToken::tokenize(c);
+        if matches!(tokenized, MainToken::LeftBrace) {
             self.parse_object()
-        } else if matches!(tokenized, Token::LeftBracket) {
+        } else if matches!(tokenized, MainToken::LeftBracket) {
             self.parse_array()
-        } else if matches!(tokenized, Token::Undecided('t') | Token::Undecided('f')) {
+        } else if matches!(tokenized, MainToken::Undecided('t') | MainToken::Undecided('f')) {
             self.parse_bool()
-        } else if matches!(tokenized, Token::Undecided('n')) {
+        } else if matches!(tokenized, MainToken::Undecided('n')) {
             self.parse_null()
-        } else if matches!(tokenized, Token::Minus | Token::Digit) {
+        } else if matches!(tokenized, MainToken::Minus | MainToken::Digit) {
             self.parse_number()
-        } else if matches!(tokenized, Token::Quotation) {
+        } else if matches!(tokenized, MainToken::Quotation) {
             self.parse_string()
         } else {
             bail!("{}: unexpected token \"{c}\", while parse value", postr(pos))
@@ -43,15 +43,15 @@ impl<'a> Parser<'a> {
 
     pub fn parse_object(&mut self) -> anyhow::Result<Value> {
         let mut object = HashMap::new();
-        self.lexer.lex_1_char(Token::LeftBrace)?;
-        while !self.lexer.is_next(Token::RightBrace) {
-            if self.lexer.is_next(Token::Quotation) {
+        self.lexer.lex_1_char(MainToken::LeftBrace, true)?;
+        while !self.lexer.is_next(MainToken::RightBrace, true) {
+            if self.lexer.is_next(MainToken::Quotation, true) {
                 let key = self.parse_string().context("while parse object's key")?;
-                self.lexer.lex_1_char(Token::Colon).context("while parse object")?;
+                self.lexer.lex_1_char(MainToken::Colon, true).context("while parse object")?;
                 let value = self.parse_value().context("while parse object's value")?;
 
-                if let Ok((p, _comma)) = self.lexer.lex_1_char(Token::Comma) {
-                    let is_object_end = self.lexer.is_next(Token::RightBrace);
+                if let Ok((p, _comma)) = self.lexer.lex_1_char(MainToken::Comma, true) {
+                    let is_object_end = self.lexer.is_next(MainToken::RightBrace, true);
                     ensure!(!is_object_end, "{}: trailing comma", postr(p));
                 } else {
                     // TODO no comma
@@ -60,18 +60,18 @@ impl<'a> Parser<'a> {
                 object.insert(key.to_string(), value);
             }
         }
-        self.lexer.lex_1_char(Token::RightBrace)?;
+        self.lexer.lex_1_char(MainToken::RightBrace, true)?;
         Ok(Value::Object(object))
     }
 
     pub fn parse_array(&mut self) -> anyhow::Result<Value> {
         let mut array = Vec::new();
-        self.lexer.lex_1_char(Token::LeftBracket)?;
-        while !self.lexer.is_next(Token::RightBracket) {
+        self.lexer.lex_1_char(MainToken::LeftBracket, true)?;
+        while !self.lexer.is_next(MainToken::RightBracket, true) {
             let value = self.parse_value()?;
 
-            if let Ok((p, _comma)) = self.lexer.lex_1_char(Token::Comma) {
-                let is_array_end = self.lexer.is_next(Token::RightBracket);
+            if let Ok((p, _comma)) = self.lexer.lex_1_char(MainToken::Comma, true) {
+                let is_array_end = self.lexer.is_next(MainToken::RightBracket, true);
                 ensure!(!is_array_end, "{}: trailing comma", postr(p));
             } else {
                 // TODO no comma
@@ -79,17 +79,17 @@ impl<'a> Parser<'a> {
 
             array.push(value);
         }
-        self.lexer.lex_1_char(Token::RightBracket)?;
+        self.lexer.lex_1_char(MainToken::RightBracket, true)?;
         Ok(Value::Array(array))
     }
 
     pub fn parse_bool(&mut self) -> anyhow::Result<Value> {
         let &(pos, tf) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, start parse bool"))?;
-        if Token::tokenize(tf) == Token::Undecided('t') {
+        if MainToken::tokenize(tf) == MainToken::Undecided('t') {
             let tru = self.lexer.lex_n_chars(4)?;
             ensure!("true" == tru, "{}: unexpected \"{tru}\", but expected \"true\"", postr(pos));
             Ok(Value::Bool(true))
-        } else if Token::tokenize(tf) == Token::Undecided('f') {
+        } else if MainToken::tokenize(tf) == MainToken::Undecided('f') {
             let fal = self.lexer.lex_n_chars(5)?;
             ensure!("false" == fal, "{}: unexpected \"{fal}\", but expected \"false\"", postr(pos));
             Ok(Value::Bool(false))
@@ -100,7 +100,7 @@ impl<'a> Parser<'a> {
 
     pub fn parse_null(&mut self) -> anyhow::Result<Value> {
         let &(pos, n) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, start parse null"))?;
-        if Token::tokenize(n) == Token::Undecided('n') {
+        if MainToken::tokenize(n) == MainToken::Undecided('n') {
             let null = self.lexer.lex_n_chars(4)?;
             ensure!("null" == null, "{}: unexpected \"{null}\", but expected \"null\"", postr(pos));
             Ok(Value::Null)
@@ -111,52 +111,47 @@ impl<'a> Parser<'a> {
 
     pub fn parse_string(&mut self) -> anyhow::Result<Value> {
         let mut string = String::new();
-        let ((row, col), _quotation) = self.lexer.lex_1_char(Token::Quotation)?;
-        while !self.lexer.is_next(Token::Quotation) {
+        let ((row, col), _quotation) = self.lexer.lex_1_char(StringToken::Quotation, false)?;
+        while !self.lexer.is_next(StringToken::Quotation, false) {
             let &((r, _c), c) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, while parse string"))?;
             if row < r {
                 bail!("{}: open string literal, must be closed by '\"'", postr((row, col)));
-            } else if self.lexer.is_next(Token::ReverseSolidus) {
+            } else if self.lexer.is_next(StringToken::ReverseSolidus, false) {
                 string.push(self.parse_escape_sequence()?);
             } else {
                 string.push(c);
                 self.lexer.next();
             }
         }
-        self.lexer.lex_1_char(Token::Quotation)?;
+        self.lexer.lex_1_char(StringToken::Quotation, false)?;
         Ok(Value::String(string))
     }
 
     pub fn parse_escape_sequence(&mut self) -> anyhow::Result<char> {
-        let (p, _reverse_solidus) = self.lexer.lex_1_char(Token::ReverseSolidus)?;
+        let (p, _reverse_solidus) = self.lexer.lex_1_char(StringToken::ReverseSolidus, false)?;
         let (_, escape) = self.lexer.next().ok_or_else(|| anyhow!("unexpected EOF, while parse escape"))?;
         // FIXME better match case
-        match Token::tokenize_with_context(escape, Some(Context::ParseString)) {
-            Token::Quotation => Ok('"'),
-            Token::ReverseSolidus => Ok('\\'),
-            Token::Solidus => Ok('/'),
-            Token::Backspace => {
-                bail!("{}: unsupported {} escape sequence in Rust", Token::Backspace, postr(p))
-            }
-            Token::Formfeed => {
-                bail!("{}: unsupported {} escape sequence in Rust", Token::Formfeed, postr(p))
-            }
-            Token::Linefeed => Ok('\n'),
-            Token::CarriageReturn => Ok('\r'),
-            Token::HorizontalTab => Ok('\t'),
-            Token::Unicode => {
+        match StringToken::tokenize(escape) {
+            StringToken::Quotation => Ok('"'),
+            StringToken::ReverseSolidus => Ok('\\'),
+            StringToken::Solidus => Ok('/'),
+            StringToken::Backspace => bail!("{}: unsupported {} in Rust", StringToken::Backspace, postr(p)),
+            StringToken::Formfeed => bail!("{}: unsupported {} in Rust", StringToken::Formfeed, postr(p)),
+            StringToken::Linefeed => Ok('\n'),
+            StringToken::CarriageReturn => Ok('\r'),
+            StringToken::HorizontalTab => Ok('\t'),
+            StringToken::Unicode => {
                 let hex4digits = self.lexer.lex_n_chars(4)?;
                 char::from_u32(u32::from_str_radix(&hex4digits[..], 16)?)
                     .ok_or_else(|| anyhow!("{}: cannot \\{hex4digits} convert to unicode", postr(p)))
             }
-            Token::Unexpected(c) => bail!("{}: unexpected escape sequence{c}", postr(p)),
-            _ => unreachable!("unexpected escape sequence is Token::Unexpected"),
+            StringToken::Unexpected(c) => bail!("{}: unexpected escape sequence{c}", postr(p)),
         }
     }
 
     pub fn parse_number(&mut self) -> anyhow::Result<Value> {
         // TODO
-        Ok(Value::Number("0".to_string()))
+        Ok(Value::Integer(0))
     }
 }
 
