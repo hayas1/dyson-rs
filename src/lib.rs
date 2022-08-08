@@ -1,10 +1,12 @@
 mod ast;
+mod io;
 mod json;
 mod lexer;
 mod parser;
 mod token;
 
 pub use crate::ast::*;
+pub use crate::io::*;
 pub use crate::json::*;
 pub use crate::lexer::*;
 pub use crate::parser::*;
