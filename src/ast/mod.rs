@@ -1,7 +1,6 @@
 mod index;
 mod into;
 
-use crate::quote;
 use std::collections::HashMap;
 
 #[derive(PartialEq, Debug)]
@@ -77,6 +76,18 @@ impl Value {
             Value::Float(_) => "Float",
         }
     }
+}
+
+fn quote(s: &str) -> String {
+    format!(
+        "\"{}\"",
+        s.replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('/', "\\/")
+            .replace('\n', "\\n")
+            .replace('\r', "\\r")
+            .replace('\t', "\\t")
+    )
 }
 
 #[cfg(test)]
