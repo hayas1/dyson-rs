@@ -37,10 +37,17 @@ impl<'a> JsonIndex for &'a str {
         }
     }
     fn indexed(self, value: &Value) -> &Self::Output {
-        self.gotten(value).expect("&str index can access Object value only (or no such key)")
+        match value {
+            Value::Object(m) => &m[self],
+            _ => panic!("&str index can access Object value only, but {}", value.node_type()),
+        }
     }
-    fn indexed_mut(self, value: &mut Value) -> &mut Self::Output {
-        self.gotten_mut(value).expect("&str index can access Object value only (or no such key)")
+    fn indexed_mut(self, _value: &mut Value) -> &mut Self::Output {
+        // match value {
+        //     Value::Object(_) => self.gotten_mut(value).unwrap_or_else(|| panic!("no such key: \"{self}\"")),
+        //     _ => panic!("&str index can access Object value only, but {}", value.node_type()),
+        // }
+        unimplemented!("HashMap do not implement IndexMut")
     }
 }
 impl JsonIndex for usize {
@@ -60,13 +67,13 @@ impl JsonIndex for usize {
     fn indexed(self, value: &Value) -> &Self::Output {
         match value {
             Value::Array(v) => &v[self],
-            _ => panic!("usize index can access Array value only"),
+            _ => panic!("usize index can access Array value only, but {}", value.node_type()),
         }
     }
     fn indexed_mut(self, value: &mut Value) -> &mut Self::Output {
         match value {
             Value::Array(v) => &mut v[self],
-            _ => panic!("usize index can access Array value only"),
+            _ => panic!("usize index can access Array value only, but {}", value.node_type()),
         }
     }
 }
@@ -87,13 +94,13 @@ impl<I: SliceIndex<[Value]>> JsonIndex for Ranger<I> {
     fn indexed(self, value: &Value) -> &Self::Output {
         match value {
             Value::Array(v) => &v[self.0],
-            _ => panic!("usize range index can access Array value only"),
+            _ => panic!("usize range index can access Array value only, but {}", value.node_type()),
         }
     }
     fn indexed_mut(self, value: &mut Value) -> &mut Self::Output {
         match value {
             Value::Array(v) => &mut v[self.0],
-            _ => panic!("usize range index can access Array value only"),
+            _ => panic!("usize range index can access Array value only, but {}", value.node_type()),
         }
     }
 }
@@ -127,8 +134,6 @@ mod tests {
         .into_iter()
         .collect();
         let ast_root = Parser::new(&json).parse_value().unwrap();
-        println!("{}", ast_root.to_string());
-        // println!("{}", ast_root.stringify(0));
         assert_eq!(ast_root["language"], Value::String("rust".to_string()));
         assert_eq!(ast_root["version"], Value::Float(0.1));
         assert_eq!(ast_root["keyword"][1], Value::String("json".to_string()));

@@ -57,7 +57,7 @@ impl<'a> Parser<'a> {
                     ensure!(is_object_end, "{}: object should be end with '}}'", postr(pos));
                 }
 
-                object.insert(key.to_string(), value);
+                object.insert(key.into(), value);
             }
         }
         self.lexer.lex_1_char(MainToken::RightBrace, true)?;
