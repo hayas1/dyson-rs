@@ -19,15 +19,14 @@ impl<B: BufRead> IntoJson for Buf<B> {
         Ok(json.into_iter().collect())
     }
 }
-impl<'a> IntoJson for &'a Path {
-    fn into_json(self) -> anyhow::Result<RawJson> {
-        let file = File::open(&self)?;
-        Buf(BufReader::new(file)).into_json()
-    }
-}
 impl IntoJson for File {
     fn into_json(self) -> anyhow::Result<RawJson> {
         Buf(BufReader::new(self)).into_json()
+    }
+}
+impl<'a> IntoJson for &'a Path {
+    fn into_json(self) -> anyhow::Result<RawJson> {
+        File::open(&self)?.into_json()
     }
 }
 
@@ -36,7 +35,7 @@ pub fn parse<T: Into<RawJson>>(t: T) -> anyhow::Result<Value> {
     Parser::new(&json).parse_value()
 }
 
-pub fn parse_buf<T: IntoJson>(t: T) -> anyhow::Result<Value> {
+pub fn parse_read<T: IntoJson>(t: T) -> anyhow::Result<Value> {
     let json = t.into_json()?;
     Parser::new(&json).parse_value()
 }
@@ -68,7 +67,7 @@ mod tests {
     #[test]
     fn test_path_to_json() {
         let path = Path::new("test/simple.json");
-        let ast_root = parse_buf(path);
+        let ast_root = parse_read(path);
         match ast_root {
             Ok(r) => assert_eq!(r["language"], Value::String("Rust".to_string())),
             Err(e) => assert!(e.to_string().to_lowercase().contains("no")),
@@ -80,7 +79,7 @@ mod tests {
         let file = File::open("test/simple.json");
         match file {
             Ok(f) => {
-                let ast_root = parse_buf(f);
+                let ast_root = parse_read(f);
                 match ast_root {
                     Ok(r) => assert_eq!(r["language"], Value::String("Rust".to_string())),
                     Err(e) => assert!(e.to_string().to_lowercase().contains("no")),
