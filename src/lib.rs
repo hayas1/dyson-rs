@@ -1,3 +1,8 @@
+//! `dyson` is a dynamic json parser library.
+//! use dyson, no need to define json scheme in advance.
+//!
+//! [see github](https://github.com/hayas1/dyson)
+
 mod ast;
 mod io;
 mod json;
