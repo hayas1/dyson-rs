@@ -10,7 +10,7 @@ pub type Nexted = ((usize, usize), char); // next is not verb but...
 pub type Peeked<'a> = &'a Nexted;
 
 pub struct Lexer<'a> {
-    pub json: &'a RawJson,
+    pub(crate) json: &'a RawJson,
     curr: Option<((usize, usize), char)>,
 }
 impl<'a> Iterator for Lexer<'a> {
