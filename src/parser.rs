@@ -352,18 +352,4 @@ mod tests {
         assert_eq!(ten, Value::Float(10.));
         assert_eq!(parser.lexer.next(), None);
     }
-
-    #[test]
-    fn test_parse_json() {
-        let json: RawJson = [
-            r#"{"#,
-            r#"    "language": "rust","#,
-            r#"    "notation": "json""#,
-            r#"    "version": 0.1"#,
-            r#"    "keyword": ["rust", "json", "parser"]"#,
-            r#"{"#,
-        ]
-        .into_iter()
-        .collect();
-    }
 }
