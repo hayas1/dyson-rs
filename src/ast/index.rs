@@ -1,38 +1,8 @@
+use super::Value;
 use std::{
-    collections::HashMap,
     ops::{Index, IndexMut},
     slice::SliceIndex,
 };
-
-#[derive(PartialEq, Debug)]
-pub enum Value {
-    Object(HashMap<String, Value>),
-    Array(Vec<Value>),
-    Bool(bool),
-    Null,
-    String(String),
-    Integer(i64),
-    Float(f64),
-}
-
-impl ToString for Value {
-    fn to_string(&self) -> String {
-        match self {
-            Value::Object(object) => format!(
-                "{{{}}}",
-                object.iter().map(|(k, v)| format!("\"{k}\": {}", v.to_string())).collect::<Vec<_>>().join(", "),
-            ),
-            Value::Array(array) => {
-                format!("[{}]", array.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", "))
-            }
-            Value::Bool(bool) => bool.to_string(),
-            Value::Null => "null".to_string(),
-            Value::String(string) => string.to_string(),
-            Value::Integer(integer) => integer.to_string(),
-            Value::Float(float) => float.to_string(),
-        }
-    }
-}
 
 impl Value {
     pub fn get<I: JsonIndex>(&self, index: I) -> Option<&I::Output> {
@@ -138,6 +108,7 @@ impl<'a, I: JsonIndex> IndexMut<I> for Value {
         index.indexed_mut(self)
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,6 +127,8 @@ mod tests {
         .into_iter()
         .collect();
         let ast_root = Parser::new(&json).parse_value().unwrap();
+        println!("{}", ast_root.to_string());
+        // println!("{}", ast_root.stringify(0));
         assert_eq!(ast_root["language"], Value::String("rust".to_string()));
         assert_eq!(ast_root["version"], Value::Float(0.1));
         assert_eq!(ast_root["keyword"][1], Value::String("json".to_string()));
