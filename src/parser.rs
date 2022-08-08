@@ -49,6 +49,7 @@ impl<'a> Parser<'a> {
                 self.lexer.lex_1_char(MainToken::Colon, true).context("while parse object")?;
                 let value = self.parse_value().context("while parse object's value")?;
 
+                // FIXME trailing comma and missing comma
                 let is_object_end = self.lexer.is_next(MainToken::RightBrace, true);
                 if let Ok((p, _comma)) = self.lexer.lex_1_char(MainToken::Comma, true) {
                     ensure!(!is_object_end, "{}: trailing comma", postr(p));
@@ -69,6 +70,7 @@ impl<'a> Parser<'a> {
         while !self.lexer.is_next(MainToken::RightBracket, true) {
             let value = self.parse_value()?;
 
+            // FIXME trailing comma and missing comma
             let is_array_end = self.lexer.is_next(MainToken::RightBracket, true);
             if let Ok((p, _comma)) = self.lexer.lex_1_char(MainToken::Comma, true) {
                 ensure!(!is_array_end, "{}: trailing comma", postr(p));
@@ -177,7 +179,7 @@ impl<'a> Parser<'a> {
             ))
         } else {
             Ok(Value::Integer(
-                number.parse().with_context(|| format!("{number} maybe valid number, but cannot convert to u64"))?,
+                number.parse().with_context(|| format!("{number} maybe valid number, but cannot convert to i64"))?,
             ))
         }
     }

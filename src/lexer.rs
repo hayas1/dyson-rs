@@ -50,7 +50,7 @@ impl<'a> Lexer<'a> {
         self.peek()
     }
 
-    /// read next expected token. this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
+    /// read next expected token. if `skip_ws`, this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
     /// if success, lexer cursor move to next, but if error, lexer cursor do not move next (skip whitespace only).
     pub fn lex_1_char<T: Token>(&mut self, token: T, skip_ws: bool) -> anyhow::Result<Nexted> {
         if let Some(&(pos, c)) = if skip_ws { self.skip_whitespace() } else { self.peek() } {
@@ -79,7 +79,7 @@ impl<'a> Lexer<'a> {
         Ok(result)
     }
 
-    /// peek next token is equal to expected token. this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
+    /// peek next token is equal to expected token. if `skip_ws`, this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
     pub fn is_next<T: Token>(&mut self, token: T, skip_ws: bool) -> bool {
         if skip_ws { self.skip_whitespace() } else { self.peek() }
             .map(|&(_p, c)| T::tokenize(c) == token)
