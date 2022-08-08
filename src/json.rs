@@ -1,32 +1,11 @@
-use std::{
-    fs::File,
-    io::{BufRead, BufReader},
-    ops::Index,
-    path::Path,
-    slice::SliceIndex,
-    vec::IntoIter,
-};
+use std::{ops::Index, slice::SliceIndex, vec::IntoIter};
 
-use anyhow::Ok;
-
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct RawJson {
     json: Vec<Vec<char>>,
 }
 
 impl RawJson {
-    pub fn read_file(path: &Path) -> anyhow::Result<Self> {
-        let file = File::open(path)?;
-        Self::read(BufReader::new(file))
-    }
-
-    pub fn read<B: BufRead>(buf_read: B) -> anyhow::Result<Self> {
-        let mut json = Vec::new();
-        for line in buf_read.lines() {
-            json.push(line?.chars().collect())
-        }
-        Ok(Self { json })
-    }
-
     pub fn rows(&self) -> usize {
         self.json.len()
     }
@@ -139,6 +118,15 @@ mod tests {
         assert_eq!(j_iter.next(), Some(' '));
         assert_eq!(j_iter.next(), Some('1'));
         assert_eq!(j_iter.next(), Some('}'));
+        assert_eq!(j_iter.next(), None);
+    }
+
+    #[test]
+    fn test_empty_json() {
+        let json: RawJson = "".into();
+        assert_eq!(json.rows(), 0);
+        assert!(json.is_empty());
+        let mut j_iter = json.into_iter();
         assert_eq!(j_iter.next(), None);
     }
 }
