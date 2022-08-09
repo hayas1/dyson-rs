@@ -27,12 +27,12 @@ jobs:
     - name: Run doc
       run: cargo doc --no-deps
     - name: Deploy
-    - uses: actions/upload-pages-artifact@v1
+      uses: actions/upload-pages-artifact@v1
       with:
         path: target/doc
 
   deploy:
-     needs: build
+     needs: doc
      permissions:
        pages: write
        id-token: write
