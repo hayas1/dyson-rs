@@ -12,7 +12,7 @@ impl Value {
         }
     }
     /// evaluate `Array` node as `Vec`.
-    /// /// # panics
+    /// # panics
     /// panic if it is not `Array` node.
     pub fn evaluate_array(&self) -> &Vec<Value> {
         match self {
@@ -21,7 +21,7 @@ impl Value {
         }
     }
     /// evaluate `Bool` node as `bool`.
-    /// /// # panics
+    /// # panics
     /// panic if it is not `Bool` node.
     pub fn evaluate_bool(&self) -> &bool {
         match self {
@@ -30,7 +30,7 @@ impl Value {
         }
     }
     /// evaluate `String` node as `&str`.
-    /// /// # panics
+    /// # panics
     /// panic if it is not `String` node.
     pub fn evaluate_string(&self) -> &str {
         match self {
@@ -39,7 +39,7 @@ impl Value {
         }
     }
     /// evaluate `Integer` node as `i64`.
-    /// /// # panics
+    /// # panics
     /// panic if it is not `Integer` node.
     pub fn evaluate_integer(&self) -> &i64 {
         match self {
@@ -48,7 +48,7 @@ impl Value {
         }
     }
     /// evaluate `Float` node as `f64`.
-    /// /// # panics
+    /// # panics
     /// panic if it is not `Float` node.
     pub fn evaluate_float(&self) -> &f64 {
         match self {
