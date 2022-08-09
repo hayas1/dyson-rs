@@ -12,3 +12,6 @@ readme = "./README.md"
 
 [dependencies]
 anyhow = "1.0"
+
+[dev-dependencies]
+tempfile = "3.3"

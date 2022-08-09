@@ -1,17 +1,19 @@
 use std::{
     fs::File,
-    io::{BufRead, BufReader},
-    path::Path,
+    io::{BufRead, BufReader, BufWriter, Write},
+    path::{Path, PathBuf},
 };
+
+use anyhow::Context as _;
 
 use crate::{ast::Value, json::RawJson, parser::Parser};
 
 struct Buf<B>(B);
-pub trait IntoJson {
-    fn into_json(self) -> anyhow::Result<RawJson>;
+pub trait ReadJson {
+    fn read_json(self) -> anyhow::Result<RawJson>;
 }
-impl<B: BufRead> IntoJson for Buf<B> {
-    fn into_json(self) -> anyhow::Result<RawJson> {
+impl<B: BufRead> ReadJson for Buf<B> {
+    fn read_json(self) -> anyhow::Result<RawJson> {
         let mut json = Vec::<String>::new();
         for line in self.0.lines() {
             json.push(line?.chars().collect())
@@ -19,14 +21,24 @@ impl<B: BufRead> IntoJson for Buf<B> {
         Ok(json.into_iter().collect())
     }
 }
-impl IntoJson for File {
-    fn into_json(self) -> anyhow::Result<RawJson> {
-        Buf(BufReader::new(self)).into_json()
+impl ReadJson for File {
+    fn read_json(self) -> anyhow::Result<RawJson> {
+        Buf(BufReader::new(self)).read_json()
     }
 }
-impl<'a> IntoJson for &'a Path {
-    fn into_json(self) -> anyhow::Result<RawJson> {
-        File::open(&self)?.into_json()
+impl<'a> ReadJson for &'a File {
+    fn read_json(self) -> anyhow::Result<RawJson> {
+        Buf(BufReader::new(self)).read_json()
+    }
+}
+impl<'a> ReadJson for &'a Path {
+    fn read_json(self) -> anyhow::Result<RawJson> {
+        File::open(&self)?.read_json()
+    }
+}
+impl<'a> ReadJson for &'a PathBuf {
+    fn read_json(self) -> anyhow::Result<RawJson> {
+        File::open(&self)?.read_json()
     }
 }
 
@@ -34,15 +46,57 @@ pub fn parse<T: Into<RawJson>>(t: T) -> anyhow::Result<Value> {
     let json = t.into();
     Parser::new(&json).parse_value()
 }
-
-pub fn parse_read<T: IntoJson>(t: T) -> anyhow::Result<Value> {
-    let json = t.into_json()?;
+pub fn parse_read<T: ReadJson>(t: T) -> anyhow::Result<Value> {
+    let json = t.read_json()?;
     Parser::new(&json).parse_value()
+}
+
+pub trait WriteJson {
+    fn write_json(self, json: &str) -> anyhow::Result<usize>;
+}
+impl<'a, T: Write> WriteJson for Buf<&'a mut BufWriter<T>> {
+    fn write_json(self, json: &str) -> anyhow::Result<usize> {
+        self.0.write(json.as_bytes()).context("file write error")
+    }
+}
+impl WriteJson for File {
+    fn write_json(self, json: &str) -> anyhow::Result<usize> {
+        Buf(&mut BufWriter::new(self)).write_json(json)
+    }
+}
+impl<'a> WriteJson for &'a File {
+    fn write_json(self, json: &str) -> anyhow::Result<usize> {
+        Buf(&mut BufWriter::new(self)).write_json(json)
+    }
+}
+impl<'a> WriteJson for &'a Path {
+    fn write_json(self, json: &str) -> anyhow::Result<usize> {
+        File::create(&self)?.write_json(json)
+    }
+}
+impl<'a> WriteJson for &'a PathBuf {
+    fn write_json(self, json: &str) -> anyhow::Result<usize> {
+        File::create(&self)?.write_json(json)
+    }
+}
+
+pub fn stringify(value: &Value) -> String {
+    value.stringify(0)
+}
+pub fn stringify_min(value: &Value) -> String {
+    value.to_string()
+}
+pub fn stringify_write<T: WriteJson>(value: &Value, writer: T) -> anyhow::Result<usize> {
+    writer.write_json(&value.stringify(0))
+}
+pub fn stringify_min_write<T: WriteJson>(value: &Value, writer: T) -> anyhow::Result<usize> {
+    writer.write_json(&value.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{Seek, SeekFrom};
 
     #[test]
     fn test_str_to_json() {
@@ -50,42 +104,62 @@ mod tests {
         let ast_root = parse(s);
         match ast_root {
             Ok(r) => assert_eq!(r["json"], Value::String("parser".to_string())),
-            Err(_) => unreachable!("string must be parsed as json"),
+            Err(_) => unreachable!("must be parsed as json"),
         }
     }
 
     #[test]
     fn test_string_to_json() {
-        let string = r#"{"this": "is", "json": "parser"}"#.to_string();
-        let ast_root = parse(string);
+        let s = r#"{"this": "is", "json": "parser"}"#.to_string();
+        let ast_root = parse(s);
         match ast_root {
             Ok(r) => assert_eq!(r["json"], Value::String("parser".to_string())),
-            Err(_) => unreachable!("string must be parsed as json"),
+            Err(_) => unreachable!("must be parsed as json"),
         }
     }
 
     #[test]
-    fn test_path_to_json() {
-        let path = Path::new("test/simple.json");
-        let ast_root = parse_read(path);
-        match ast_root {
-            Ok(r) => assert_eq!(r["language"], Value::String("Rust".to_string())),
-            Err(e) => assert!(e.to_string().to_lowercase().contains("no")),
-        }
-    }
+    fn test_file_io_json() {
+        let json: RawJson = [
+            r#"{"#,
+            r#"    "language": "rust","#,
+            r#"    "notation": "json","#,
+            r#"    "version": 0.1,"#,
+            r#"    "keyword": ["rust", "json", "parser"],"#,
+            r#"    "dict": {"one": 1, "two": 2, "three": 3}"#,
+            r#"}"#,
+        ]
+        .into_iter()
+        .collect();
+        let result = || -> anyhow::Result<()> {
+            let mut raw_json_file = tempfile::tempfile()?;
+            write!(raw_json_file, "{json}")?;
+            raw_json_file.seek(SeekFrom::Start(0))?;
 
-    #[test]
-    fn test_file_to_json() {
-        let file = File::open("test/simple.json");
-        match file {
-            Ok(f) => {
-                let ast_root = parse_read(f);
-                match ast_root {
-                    Ok(r) => assert_eq!(r["language"], Value::String("Rust".to_string())),
-                    Err(e) => assert!(e.to_string().to_lowercase().contains("no")),
-                }
-            }
-            Err(e) => assert!(e.to_string().to_lowercase().contains("no")),
-        }
+            let ast_root1 = parse_read(&raw_json_file)?;
+            assert_eq!(ast_root1["language"], Value::String("rust".to_string()));
+            let mut json_file1 = tempfile::tempfile()?;
+            stringify_write(&ast_root1, &json_file1)?;
+            json_file1.seek(SeekFrom::Start(0))?;
+
+            let ast_root2 = parse_read(&json_file1)?;
+            assert_eq!(ast_root2["language"], Value::String("rust".to_string()));
+            let mut json_file2 = tempfile::tempfile()?;
+            stringify_min_write(&ast_root2, &json_file2)?;
+            json_file2.seek(SeekFrom::Start(0))?;
+
+            let ast_root3 = parse_read(&json_file2)?;
+            assert_eq!(ast_root3["language"], Value::String("rust".to_string()));
+
+            assert_ne!(stringify(&ast_root1), json.to_string());
+            assert_ne!(stringify_min(&ast_root2), json.to_string());
+            assert_ne!(stringify(&ast_root1), stringify_min(&ast_root2));
+
+            assert_eq!(ast_root1, ast_root2);
+            assert_eq!(ast_root2, ast_root3);
+            assert_eq!(ast_root3, ast_root1);
+            Ok(())
+        }();
+        assert!(result.is_ok());
     }
 }

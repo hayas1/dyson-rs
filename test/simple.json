@@ -1,9 +1,0 @@
-{
-    "language": "Rust",
-    "program": "JSON parser",
-    "keyword": [
-        "rust",
-        "json",
-        "parser"
-    ]
-}
