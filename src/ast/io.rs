@@ -1,4 +1,4 @@
-use crate::{json::RawJson, parser::Parser};
+use crate::{parser::Parser, rawjson::RawJson};
 
 use super::Value;
 use anyhow::Context as _;

@@ -1,7 +1,7 @@
 pub mod lexer;
 pub mod token;
 
-use crate::{ast::Value, json::RawJson, postr};
+use crate::{ast::Value, postr, rawjson::RawJson};
 use anyhow::{anyhow, bail, ensure, Context as _};
 use std::collections::HashMap;
 use {

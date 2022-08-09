@@ -1,5 +1,5 @@
 use super::token::{MainToken, Token};
-use crate::{json::RawJson, postr};
+use crate::{postr, rawjson::RawJson};
 use anyhow::{anyhow, bail, ensure};
 
 pub type Nexted = ((usize, usize), char); // next is not verb but...

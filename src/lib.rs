@@ -4,8 +4,8 @@
 //! [see github](https://github.com/hayas1/dyson)
 
 pub mod ast;
-pub mod json;
 pub mod parser;
+pub mod rawjson;
 
 fn postr((row, col): (usize, usize)) -> String {
     format!("line {} (col {})", row + 1, col + 1)
