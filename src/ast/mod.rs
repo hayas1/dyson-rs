@@ -1,5 +1,6 @@
 mod index;
 mod into;
+mod io;
 
 use std::collections::HashMap;
 
@@ -35,35 +36,38 @@ impl std::fmt::Display for Value {
 }
 
 impl Value {
-    pub fn stringify(&self, indent: usize) -> String {
-        let indent_unit = " ".repeat(4);
-        let indent_internal = indent_unit.repeat(indent + 1);
-        let indent_external = indent_unit.repeat(indent);
-        match self {
-            Value::Object(object) => format!(
-                "{{\n{}\n{indent_external}}}",
-                object
-                    .iter()
-                    .map(|(k, v)| format!("{indent_internal}{}: {}", quote(k), v.stringify(indent + 1)))
-                    .collect::<Vec<_>>()
-                    .join(",\n"),
-            ),
-            Value::Array(array) => {
-                format!(
-                    "[\n{}\n{indent_external}]",
-                    array
+    pub fn stringify(&self) -> String {
+        fn stringify_recursive(value: &Value, indent: usize) -> String {
+            let indent_unit = " ".repeat(4);
+            let indent_internal = indent_unit.repeat(indent + 1);
+            let indent_external = indent_unit.repeat(indent);
+            match value {
+                Value::Object(object) => format!(
+                    "{{\n{}\n{indent_external}}}",
+                    object
                         .iter()
-                        .map(|v| format!("{indent_internal}{}", v.stringify(indent + 1)))
+                        .map(|(k, v)| format!("{indent_internal}{}: {}", quote(k), stringify_recursive(v, indent + 1)))
                         .collect::<Vec<_>>()
-                        .join(",\n")
-                )
+                        .join(",\n"),
+                ),
+                Value::Array(array) => {
+                    format!(
+                        "[\n{}\n{indent_external}]",
+                        array
+                            .iter()
+                            .map(|v| format!("{indent_internal}{}", stringify_recursive(v, indent + 1)))
+                            .collect::<Vec<_>>()
+                            .join(",\n")
+                    )
+                }
+                Value::Bool(bool) => bool.to_string(),
+                Value::Null => "null".to_string(),
+                Value::String(string) => quote(string),
+                Value::Integer(integer) => integer.to_string(),
+                Value::Float(float) => float.to_string(),
             }
-            Value::Bool(bool) => bool.to_string(),
-            Value::Null => "null".to_string(),
-            Value::String(string) => quote(string),
-            Value::Integer(integer) => integer.to_string(),
-            Value::Float(float) => float.to_string(),
         }
+        stringify_recursive(self, 0)
     }
 
     pub fn node_type(&self) -> &str {
@@ -109,7 +113,7 @@ mod tests {
         .into_iter()
         .collect();
         let ast_root = Parser::new(&json).parse_value().unwrap();
-        let json2 = ast_root.stringify(0).into();
+        let json2 = ast_root.stringify().into();
         let ast_root2 = Parser::new(&json2).parse_value().unwrap();
         let json3 = ast_root2.to_string().into();
         let ast_root3 = Parser::new(&json3).parse_value().unwrap();

@@ -1,12 +1,25 @@
+use super::Value;
+use crate::{json::RawJson, parser::Parser};
+use anyhow::Context as _;
 use std::{
     fs::File,
     io::{BufRead, BufReader, BufWriter, Write},
     path::{Path, PathBuf},
 };
 
-use anyhow::Context as _;
-
-use crate::{ast::Value, json::RawJson, parser::Parser};
+impl Value {
+    pub fn parse<T: Into<RawJson>>(t: T) -> anyhow::Result<Value> {
+        let json = t.into();
+        Parser::new(&json).parse_value()
+    }
+    pub fn parse_read<T: ReadJson>(t: T) -> anyhow::Result<Value> {
+        let json = t.read_json()?;
+        Parser::new(&json).parse_value()
+    }
+    pub fn stringify_write<T: WriteJson>(&self, writer: T, min: bool) -> anyhow::Result<usize> {
+        writer.write_json(&if min { self.to_string() } else { self.stringify() })
+    }
+}
 
 struct Buf<B>(B);
 pub trait ReadJson {
@@ -42,15 +55,6 @@ impl<'a> ReadJson for &'a PathBuf {
     }
 }
 
-pub fn parse<T: Into<RawJson>>(t: T) -> anyhow::Result<Value> {
-    let json = t.into();
-    Parser::new(&json).parse_value()
-}
-pub fn parse_read<T: ReadJson>(t: T) -> anyhow::Result<Value> {
-    let json = t.read_json()?;
-    Parser::new(&json).parse_value()
-}
-
 pub trait WriteJson {
     fn write_json(self, json: &str) -> anyhow::Result<usize>;
 }
@@ -80,19 +84,6 @@ impl<'a> WriteJson for &'a PathBuf {
     }
 }
 
-pub fn stringify(value: &Value) -> String {
-    value.stringify(0)
-}
-pub fn stringify_min(value: &Value) -> String {
-    value.to_string()
-}
-pub fn stringify_write<T: WriteJson>(value: &Value, writer: T) -> anyhow::Result<usize> {
-    writer.write_json(&value.stringify(0))
-}
-pub fn stringify_min_write<T: WriteJson>(value: &Value, writer: T) -> anyhow::Result<usize> {
-    writer.write_json(&value.to_string())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -101,7 +92,7 @@ mod tests {
     #[test]
     fn test_str_to_json() {
         let s = r#"{"this": "is", "json": "parser"}"#;
-        let ast_root = parse(s);
+        let ast_root = Value::parse(s);
         match ast_root {
             Ok(r) => assert_eq!(r["json"], Value::String("parser".to_string())),
             Err(_) => unreachable!("must be parsed as json"),
@@ -111,7 +102,7 @@ mod tests {
     #[test]
     fn test_string_to_json() {
         let s = r#"{"this": "is", "json": "parser"}"#.to_string();
-        let ast_root = parse(s);
+        let ast_root = Value::parse(s);
         match ast_root {
             Ok(r) => assert_eq!(r["json"], Value::String("parser".to_string())),
             Err(_) => unreachable!("must be parsed as json"),
@@ -136,24 +127,24 @@ mod tests {
             write!(raw_json_file, "{json}")?;
             raw_json_file.seek(SeekFrom::Start(0))?;
 
-            let ast_root1 = parse_read(&raw_json_file)?;
+            let ast_root1 = Value::parse_read(&raw_json_file)?;
             assert_eq!(ast_root1["language"], Value::String("rust".to_string()));
             let mut json_file1 = tempfile::tempfile()?;
-            stringify_write(&ast_root1, &json_file1)?;
+            ast_root1.stringify_write(&json_file1, false)?;
             json_file1.seek(SeekFrom::Start(0))?;
 
-            let ast_root2 = parse_read(&json_file1)?;
+            let ast_root2 = Value::parse_read(&json_file1)?;
             assert_eq!(ast_root2["language"], Value::String("rust".to_string()));
             let mut json_file2 = tempfile::tempfile()?;
-            stringify_min_write(&ast_root2, &json_file2)?;
+            ast_root2.stringify_write(&json_file2, true)?;
             json_file2.seek(SeekFrom::Start(0))?;
 
-            let ast_root3 = parse_read(&json_file2)?;
+            let ast_root3 = Value::parse_read(&json_file2)?;
             assert_eq!(ast_root3["language"], Value::String("rust".to_string()));
 
-            assert_ne!(stringify(&ast_root1), json.to_string());
-            assert_ne!(stringify_min(&ast_root2), json.to_string());
-            assert_ne!(stringify(&ast_root1), stringify_min(&ast_root2));
+            assert_ne!(ast_root1.stringify(), json.to_string());
+            assert_ne!(ast_root2.to_string(), json.to_string());
+            assert_ne!(ast_root1.stringify(), ast_root2.to_string());
 
             assert_eq!(ast_root1, ast_root2);
             assert_eq!(ast_root2, ast_root3);
