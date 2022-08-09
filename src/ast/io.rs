@@ -1,5 +1,6 @@
-use super::Value;
 use crate::{json::RawJson, parser::Parser};
+
+use super::Value;
 use anyhow::Context as _;
 use std::{
     fs::File,
@@ -8,14 +9,17 @@ use std::{
 };
 
 impl Value {
+    /// parse raw json into ast.
     pub fn parse<T: Into<RawJson>>(t: T) -> anyhow::Result<Value> {
         let json = t.into();
         Parser::new(&json).parse_value()
     }
+    /// parse file like raw json into ast. see [parse](Value) also.
     pub fn parse_read<T: ReadJson>(t: T) -> anyhow::Result<Value> {
         let json = t.read_json()?;
         Parser::new(&json).parse_value()
     }
+    /// write ast to file. if `min` is true, no unnecessary space and linefeed is included.
     pub fn stringify_write<T: WriteJson>(&self, writer: T, min: bool) -> anyhow::Result<usize> {
         writer.write_json(&if min { self.to_string() } else { self.stringify() })
     }

@@ -5,10 +5,15 @@ use std::{
 };
 
 impl Value {
+    /// access json value. get reference of it.
+    /// - if index is position and the value is array, return the element, else return `None`
+    /// - if index is range and the value is array, return these element, else return `None`
+    /// - if index is string and the value is object, return the element, else return `None`
     pub fn get<I: JsonIndex>(&self, index: I) -> Option<&I::Output> {
         index.gotten(self)
     }
 
+    /// access json value. get mutable reference of it. see [get](Value) also.
     pub fn get_mut<I: JsonIndex>(&mut self, index: I) -> Option<&mut I::Output> {
         index.gotten_mut(self)
     }

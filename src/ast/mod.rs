@@ -1,6 +1,6 @@
-mod index;
-mod into;
-mod io;
+pub mod index;
+pub mod into;
+pub mod io;
 
 use std::collections::HashMap;
 
@@ -36,6 +36,7 @@ impl std::fmt::Display for Value {
 }
 
 impl Value {
+    /// stringify ast with proper indent.
     pub fn stringify(&self) -> String {
         fn stringify_recursive(value: &Value, indent: usize) -> String {
             let indent_unit = " ".repeat(4);
@@ -70,6 +71,7 @@ impl Value {
         stringify_recursive(self, 0)
     }
 
+    /// get ast node type as `&str`. mainly for debugging purposes.
     pub fn node_type(&self) -> &str {
         match self {
             Value::Object(_) => "Object",
