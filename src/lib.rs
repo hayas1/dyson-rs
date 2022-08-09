@@ -3,17 +3,9 @@
 //!
 //! [see github](https://github.com/hayas1/dyson)
 
-mod ast;
-mod json;
-mod lexer;
-mod parser;
-mod token;
-
-pub use crate::ast::*;
-pub use crate::json::*;
-pub use crate::lexer::*;
-pub use crate::parser::*;
-pub use crate::token::*;
+pub mod ast;
+pub mod json;
+pub mod parser;
 
 fn postr((row, col): (usize, usize)) -> String {
     format!("line {} (col {})", row + 1, col + 1)

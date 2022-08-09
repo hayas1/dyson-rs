@@ -1,12 +1,11 @@
-use std::collections::HashMap;
+pub mod lexer;
+pub mod token;
 
+use crate::{ast::Value, json::RawJson, postr};
 use anyhow::{anyhow, bail, ensure, Context as _};
-
-use crate::{
-    ast::Value,
-    json::RawJson,
+use std::collections::HashMap;
+use {
     lexer::Lexer,
-    postr,
     token::{MainToken, NumberToken, StringToken, Token},
 };
 
@@ -15,10 +14,13 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    /// get new parser to parse raw json
     pub fn new(json: &'a RawJson) -> Self {
         Self { lexer: Lexer::new(json) }
     }
 
+    /// parse `value` of json. the following ebnf is not precise.<br>
+    /// `value` := `object` | `array` | `bool` | `null` | `string` | `number`;
     pub fn parse_value(&mut self) -> anyhow::Result<Value> {
         let &(pos, c) = self.lexer.skip_whitespace().ok_or_else(|| anyhow!("unexpected EOF, start parse value"))?;
 
@@ -31,15 +33,17 @@ impl<'a> Parser<'a> {
             self.parse_bool()
         } else if matches!(tokenized, MainToken::Undecided('n')) {
             self.parse_null()
-        } else if matches!(tokenized, MainToken::Minus | MainToken::Digit) {
-            self.parse_number()
         } else if matches!(tokenized, MainToken::Quotation) {
             self.parse_string()
+        } else if matches!(tokenized, MainToken::Minus | MainToken::Digit) {
+            self.parse_number()
         } else {
             bail!("{}: unexpected token \"{c}\", while parse value", postr(pos))
         }
     }
 
+    /// parse `object` of json. the following ebnf is not precise.<br>
+    /// `object` := "{" { `string` ":" `value` \[ "," \] }  "}"
     pub fn parse_object(&mut self) -> anyhow::Result<Value> {
         let mut object = HashMap::new();
         let (pos, _left_brace) = self.lexer.lex_1_char(MainToken::LeftBrace, true)?;
@@ -64,6 +68,8 @@ impl<'a> Parser<'a> {
         Ok(Value::Object(object))
     }
 
+    /// parse `array` of json. the following ebnf is not precise.<br>
+    /// `array` := "\[" { `value` \[ "," \] }  "\]"
     pub fn parse_array(&mut self) -> anyhow::Result<Value> {
         let mut array = Vec::new();
         let (pos, _left_bracket) = self.lexer.lex_1_char(MainToken::LeftBracket, true)?;
@@ -84,6 +90,8 @@ impl<'a> Parser<'a> {
         Ok(Value::Array(array))
     }
 
+    /// parse `bool` of json. the following ebnf is not precise.<br>
+    /// `bool` := "true" | "false"
     pub fn parse_bool(&mut self) -> anyhow::Result<Value> {
         let &(pos, tf) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, start parse bool"))?;
         match MainToken::tokenize(tf) {
@@ -101,6 +109,8 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// parse `null` of json. the following ebnf is not precise.<br>
+    /// `null` := "null"
     pub fn parse_null(&mut self) -> anyhow::Result<Value> {
         let &(pos, n) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, start parse null"))?;
         match MainToken::tokenize(n) {
@@ -113,6 +123,8 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// parse `string` of json. the following ebnf is not precise.<br>
+    /// `string` := """ { `escape_sequence` | `char`  } """
     pub fn parse_string(&mut self) -> anyhow::Result<Value> {
         let mut string = String::new();
         let ((row, col), _quotation) = self.lexer.lex_1_char(StringToken::Quotation, false)?;
@@ -131,6 +143,8 @@ impl<'a> Parser<'a> {
         Ok(Value::String(string))
     }
 
+    /// parse `escape_sequence` of json. the following ebnf is not precise.<br>
+    /// `escape_sequence` := "\\"" | "\\\\" | "\\/" | "\n" | "\r" | "\t" | "\u" `hex4digits`
     pub fn parse_escape_sequence(&mut self) -> anyhow::Result<char> {
         let (p, _reverse_solidus) = self.lexer.lex_1_char(StringToken::ReverseSolidus, false)?;
         let (_, escape) = self.lexer.next().ok_or_else(|| anyhow!("unexpected EOF, while parse escape"))?;
@@ -153,6 +167,8 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// parse `number` of json. the following ebnf is not precise.<br>
+    /// `number` := \[ "-" \] `digits` \[ \[ `fraction_part` \] \[`exponent_part` \] \]
     pub fn parse_number(&mut self) -> anyhow::Result<Value> {
         let mut number = String::new();
         let &((row, col), _) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, while parse escape"))?;
@@ -184,6 +200,8 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// parse `digits` of json. the following ebnf is not precise.<br>
+    /// `digits` := { "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" }
     fn parse_digits(&mut self, (start_row, start_col): (usize, usize)) -> anyhow::Result<String> {
         let mut digits = String::new();
         while let Some(&((r, _c), c)) = self.lexer.peek() {
@@ -200,6 +218,8 @@ impl<'a> Parser<'a> {
         Ok(digits)
     }
 
+    /// parse `fraction_part` of json. the following ebnf is not precise.<br>
+    /// `fraction_part` := "." `digits`
     pub fn parse_fraction(&mut self, (start_row, start_col): (usize, usize)) -> anyhow::Result<String> {
         let mut fraction_component = String::new();
         let ((r, _c), dot) = self.lexer.lex_1_char(NumberToken::Dot, false)?;
@@ -209,6 +229,8 @@ impl<'a> Parser<'a> {
         Ok(fraction_component)
     }
 
+    /// parse `exponent_part` of json. the following ebnf is not precise.<br>
+    /// `exponent_part` := ("E" | "e") \[ "+" | "-" \] `digits`
     pub fn parse_exponent(&mut self, (start_row, start_col): (usize, usize)) -> anyhow::Result<String> {
         let mut exponent_component = String::new();
         let ((r, _c), exponent) = self.lexer.lex_1_char(NumberToken::Exponent, false)?;

@@ -144,7 +144,6 @@ impl Token for NumberToken {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[test]
