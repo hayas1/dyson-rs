@@ -6,8 +6,8 @@ use std::collections::HashMap;
 
 /// `Value` is ast node of json. see [Introducing JSON](https://www.json.org/json-en.html) also.
 /// # Examples
-/// ```
-/// use dyson::Value;
+/// ```no_run
+/// use dyson::{Value, Ranger};
 ///
 /// // `path/to/read.json`
 /// // {
@@ -21,8 +21,9 @@ use std::collections::HashMap;
 ///
 /// // access json
 /// assert_eq!(json["language"], Value::String("rust".to_string()));
-/// let version: &f64 = (&json["version"]).into();
-/// assert_eq!(version, &0.1);
+/// assert_eq!(json["version"].evaluate_float(), 0.1);
+/// assert_eq!(json["keyword"][Ranger(1..)], [Value::String("json".to_string()), Value::String("parser".to_string())]);
+/// assert_eq!(json.get("get"), None);
 ///
 /// // write json
 /// json.stringify_write("path/to/write.json", true).expect("failed to write json");

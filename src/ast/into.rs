@@ -1,6 +1,51 @@
 use super::Value;
 use std::collections::HashMap;
 
+impl Value {
+    /// evaluate `Object` node as `HashMap`
+    pub fn evaluate_object(&self) -> HashMap<&str, &Value> {
+        match self {
+            Value::Object(m) => m.iter().map(|(k, v)| (&k[..], v)).collect(),
+            _ => panic!("only Object can convert into HashMap, but {}", self.node_type()),
+        }
+    }
+    /// evaluate `Array` node as `Vec`
+    pub fn evaluate_array(&self) -> Vec<&Value> {
+        match self {
+            Value::Array(v) => v.iter().collect(),
+            _ => panic!("only Array can convert into Vec, but {}", self.node_type()),
+        }
+    }
+    /// evaluate `Bool` node as `bool`
+    pub fn evaluate_bool(&self) -> bool {
+        match self {
+            Value::Bool(b) => *b,
+            _ => panic!("only Bool can convert into bool, but {}", self.node_type()),
+        }
+    }
+    /// evaluate `String` node as `String`
+    pub fn evaluate_string(&self) -> String {
+        match self {
+            Value::String(s) => s.clone(),
+            _ => panic!("only String can convert into String, but {}", self.node_type()),
+        }
+    }
+    /// evaluate `Integer` node as `i64`
+    pub fn evaluate_integer(&self) -> i64 {
+        match self {
+            Value::Integer(i) => *i,
+            _ => panic!("only Integer can convert into i64, but {}", self.node_type()),
+        }
+    }
+    /// evaluate `Float` node as `f64`
+    pub fn evaluate_float(&self) -> f64 {
+        match self {
+            Value::Float(f) => *f,
+            _ => panic!("only Float can convert into f64, but {}", self.node_type()),
+        }
+    }
+}
+
 impl From<Value> for HashMap<String, Value> {
     fn from(val: Value) -> Self {
         match val {

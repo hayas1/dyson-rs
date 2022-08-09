@@ -19,7 +19,7 @@ impl Value {
     }
 }
 
-pub struct Ranger<I>(I);
+pub struct Ranger<I>(pub I);
 pub trait JsonIndex {
     type Output: ?Sized;
     fn gotten(self, value: &Value) -> Option<&Self::Output>;
