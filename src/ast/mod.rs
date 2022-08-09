@@ -21,7 +21,7 @@ use std::collections::HashMap;
 ///
 /// // access json
 /// assert_eq!(json["language"], Value::String("rust".to_string()));
-/// assert_eq!(json["version"].evaluate_float(), 0.1);
+/// assert_eq!(json["version"].evaluate_float(), &0.1);
 /// assert_eq!(json["keyword"][Ranger(1..)], [Value::String("json".to_string()), Value::String("parser".to_string())]);
 /// assert_eq!(json.get("get"), None);
 ///
