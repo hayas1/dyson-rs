@@ -1,0 +1,6 @@
+{
+    "language": "rust",
+    "notation": "json",
+    "version": 0.1,
+    "keyword": ["rust", "json", "parser"]
+}
