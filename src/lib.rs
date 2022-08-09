@@ -7,6 +7,8 @@ pub mod ast;
 pub mod parser;
 pub mod rawjson;
 
+pub use ast::Value;
+
 fn postr((row, col): (usize, usize)) -> String {
     format!("line {} (col {})", row + 1, col + 1)
 }

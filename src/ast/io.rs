@@ -58,6 +58,11 @@ impl<'a> ReadJson for &'a PathBuf {
         File::open(&self)?.read_json()
     }
 }
+impl<'a> ReadJson for &'a str {
+    fn read_json(self) -> anyhow::Result<RawJson> {
+        File::open(&self)?.read_json()
+    }
+}
 
 pub trait WriteJson {
     fn write_json(self, json: &str) -> anyhow::Result<usize>;
@@ -83,6 +88,11 @@ impl<'a> WriteJson for &'a Path {
     }
 }
 impl<'a> WriteJson for &'a PathBuf {
+    fn write_json(self, json: &str) -> anyhow::Result<usize> {
+        File::create(&self)?.write_json(json)
+    }
+}
+impl<'a> WriteJson for &'a str {
     fn write_json(self, json: &str) -> anyhow::Result<usize> {
         File::create(&self)?.write_json(json)
     }

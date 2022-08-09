@@ -4,14 +4,50 @@ pub mod io;
 
 use std::collections::HashMap;
 
+/// `Value` is ast node of json. see [https://www.json.org/json-en.html] also.
+/// # Examples
+/// ```
+/// use dyson::Value;
+///
+/// // `path/to/read.json`
+/// // {
+/// //     "language": "rust",
+/// //     "notation": "json",
+/// //     "version": 0.1,
+/// //     "keyword": ["rust", "json", "parser"]
+/// // }
+/// // read json
+/// let json = Value::parse_read("path/to/read.json").expect("invalid path or json structure");
+///
+/// // access json
+/// assert_eq!(json["language"], Value::String("rust".to_string()));
+/// let version: &f64 = (&json["version"]).into();
+/// assert_eq!(version, &0.1);
+///
+/// // write json
+/// json.stringify_write("path/to/write.json", true).expect("failed to write json");
+/// ```
 #[derive(PartialEq, Debug)]
 pub enum Value {
+    /// correspond to object of json.
     Object(HashMap<String, Value>),
+
+    /// correspond to array of json.
     Array(Vec<Value>),
+
+    /// correspond to bool of json.
     Bool(bool),
+
+    /// correspond to null of json.
     Null,
+
+    /// correspond to string of json.
     String(String),
+
+    /// correspond to integer of json.
     Integer(i64),
+
+    /// correspond to float of json.
     Float(f64),
 }
 
