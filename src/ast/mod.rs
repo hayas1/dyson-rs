@@ -4,7 +4,7 @@ pub mod io;
 
 use std::collections::HashMap;
 
-/// `Value` is ast node of json. see [https://www.json.org/json-en.html] also.
+/// `Value` is ast node of json. see [Introducing JSON](https://www.json.org/json-en.html) also.
 /// # Examples
 /// ```
 /// use dyson::Value;
