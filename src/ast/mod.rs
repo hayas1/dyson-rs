@@ -26,7 +26,7 @@ use std::collections::HashMap;
 /// assert_eq!(json.get("get"), None);
 ///
 /// // write json
-/// json.stringify_write("path/to/write.json", true).expect("failed to write json");
+/// json.stringify_write("path/to/write.json").expect("failed to write json");
 /// ```
 #[derive(PartialEq, Debug)]
 pub enum Value {

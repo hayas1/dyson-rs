@@ -19,9 +19,14 @@ impl Value {
         let json = t.read_json()?;
         Parser::new(&json).parse_value()
     }
+    /// write ast to file. written string has proper indent. see [stringify](Value) also.
+    pub fn stringify_write<T: WriteJson>(&self, writer: T) -> anyhow::Result<usize> {
+        writer.write_json(&self.stringify())
+    }
     /// write ast to file. if `min` is true, no unnecessary space and linefeed is included.
-    pub fn stringify_write<T: WriteJson>(&self, writer: T, min: bool) -> anyhow::Result<usize> {
-        writer.write_json(&if min { self.to_string() } else { self.stringify() })
+    /// see [to_string](Value) also.
+    pub fn stringify_min_write<T: WriteJson>(&self, writer: T) -> anyhow::Result<usize> {
+        writer.write_json(&self.to_string())
     }
 }
 
@@ -144,13 +149,13 @@ mod tests {
             let ast_root1 = Value::parse_read(&raw_json_file)?;
             assert_eq!(ast_root1["language"], Value::String("rust".to_string()));
             let mut json_file1 = tempfile::tempfile()?;
-            ast_root1.stringify_write(&json_file1, false)?;
+            ast_root1.stringify_write(&json_file1)?;
             json_file1.seek(SeekFrom::Start(0))?;
 
             let ast_root2 = Value::parse_read(&json_file1)?;
             assert_eq!(ast_root2["language"], Value::String("rust".to_string()));
             let mut json_file2 = tempfile::tempfile()?;
-            ast_root2.stringify_write(&json_file2, true)?;
+            ast_root2.stringify_min_write(&json_file2)?;
             json_file2.seek(SeekFrom::Start(0))?;
 
             let ast_root3 = Value::parse_read(&json_file2)?;
