@@ -14,12 +14,12 @@ pub enum Value {
     Float(f64),
 }
 
-impl ToString for Value {
-    fn to_string(&self) -> String {
-        match self {
+impl std::fmt::Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let json_display = match self {
             Value::Object(object) => format!(
                 "{{{}}}",
-                object.iter().map(|(k, v)| format!("{}:{}", quote(k), v.to_string())).collect::<Vec<_>>().join(","),
+                object.iter().map(|(k, v)| format!("{}:{}", quote(k), v)).collect::<Vec<_>>().join(","),
             ),
             Value::Array(array) => {
                 format!("[{}]", array.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(","))
@@ -29,7 +29,8 @@ impl ToString for Value {
             Value::String(string) => quote(string),
             Value::Integer(integer) => integer.to_string(),
             Value::Float(float) => float.to_string(),
-        }
+        };
+        write!(f, "{json_display}")
     }
 }
 

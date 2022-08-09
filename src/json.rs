@@ -15,6 +15,12 @@ impl RawJson {
     }
 }
 
+impl std::fmt::Display for RawJson {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.iter().map(|l| l.iter().collect::<String>()).collect::<Vec<_>>().join("\n"))
+    }
+}
+
 impl FromIterator<String> for RawJson {
     fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> Self {
         Self { json: iter.into_iter().map(|s| s.chars().collect()).collect() }
@@ -40,11 +46,6 @@ impl From<&str> for RawJson {
 impl From<RawJson> for String {
     fn from(rj: RawJson) -> Self {
         rj.into_iter().map(|l| l.into_iter().collect::<String>()).collect::<Vec<_>>().join("\n")
-    }
-}
-impl ToString for RawJson {
-    fn to_string(&self) -> String {
-        self.iter().map(|l| l.iter().collect::<String>()).collect::<Vec<_>>().join("\n")
     }
 }
 
