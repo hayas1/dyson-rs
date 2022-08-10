@@ -4,8 +4,8 @@
 //! [see github](https://github.com/hayas1/dyson)
 
 pub mod ast;
-pub mod parser;
 pub mod rawjson;
+pub mod syntax;
 
 pub use ast::index::Ranger;
 pub use ast::Value;

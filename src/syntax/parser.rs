@@ -1,8 +1,4 @@
-mod lexer;
-mod token;
-pub use lexer::Lexer;
-pub use token::{MainToken, NumberToken, StringToken, Token};
-
+use super::{Lexer, MainToken, NumberToken, StringToken, Token};
 use crate::{ast::Value, postr, rawjson::RawJson};
 use anyhow::{anyhow, bail, ensure, Context as _};
 use std::collections::HashMap;

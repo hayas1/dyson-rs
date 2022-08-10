@@ -124,7 +124,7 @@ impl<'a, I: JsonIndex> IndexMut<I> for Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::Parser;
+    use crate::syntax::Parser;
 
     #[test]
     fn test_access_json() {

@@ -1,5 +1,5 @@
 use super::Value;
-use crate::{parser::Parser, rawjson::RawJson};
+use crate::{rawjson::RawJson, syntax::Parser};
 use anyhow::Context as _;
 use std::{
     fs::File,

@@ -136,7 +136,7 @@ fn quote(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::Parser;
+    use crate::syntax::Parser;
 
     #[test]
     fn test_stringify_json() {

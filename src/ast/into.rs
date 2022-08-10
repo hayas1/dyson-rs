@@ -195,7 +195,7 @@ impl Value {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::Parser;
+    use crate::syntax::Parser;
 
     #[test]
     fn test_into_bool_json() {
