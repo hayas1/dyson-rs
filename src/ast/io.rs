@@ -34,16 +34,16 @@ impl Value {
 
     /// write ast to file. written string has proper indent. see [`Value::stringify`] also.
     pub fn write<W: Write>(&self, w: W) -> anyhow::Result<usize> {
-        BufWriter::new(w).write(self.stringify().as_bytes()).context("could not write file")
+        BufWriter::new(w).write(Indent::<1>::format(self).as_bytes()).context("could not write file")
     }
     /// write ast to file specified by path. written string has proper indent. see [`Value::stringify`] also.
     pub fn dump<P: AsRef<Path>>(&self, p: P) -> anyhow::Result<usize> {
         let file = File::create(p)?;
         self.write(file)
     }
-    /// write ast to file with indent. see [`Value::load_with`] also.
-    pub fn write_with<W: Write, F: StringifyFunction>(&self, w: W) -> anyhow::Result<usize> {
-        BufWriter::new(w).write(F::stringify_function(self).as_bytes()).context("could not write file")
+    /// write ast to file with indent. see [`Value::dump_with`] also.
+    pub fn write_with<W: Write, F: JsonFormatter>(&self, w: W) -> anyhow::Result<usize> {
+        BufWriter::new(w).write(F::format(self).as_bytes()).context("could not write file")
     }
     /// /// write ast to file specified by path with indent. see [`Indent`] also
     /// # example
@@ -52,10 +52,10 @@ impl Value {
     /// let raw_json = r#"{"key": [1, "two", 3, {"foo": {"bar": "baz"} } ]}"#;
     /// let json = Value::parse(raw_json).unwrap();
     ///
-    /// json.load_with::<_, Indent<0>>("path/to/write.json");
+    /// json.dump_with::<_, Indent<0>>("path/to/write.json");
     /// // {"key":[1,"two",3,{"foo":{"bar":"baz"}}]}
     ///
-    /// json.load_with::<_, Indent<1>>("path/to/write.json");
+    /// json.dump_with::<_, Indent<1>>("path/to/write.json");
     /// // {
     /// //     "key": [
     /// //         1,
@@ -70,10 +70,10 @@ impl Value {
     /// // }
     ///
     /// // `Indent<2>` is not implement, so cause compile error
-    /// // json.load_with::<_, Indent<2>>("path/to/write.json");
+    /// // json.dump_with::<_, Indent<2>>("path/to/write.json");
     ///
     /// ```
-    pub fn load_with<P: AsRef<Path>, F: StringifyFunction>(&self, p: P) -> anyhow::Result<usize> {
+    pub fn dump_with<P: AsRef<Path>, F: JsonFormatter>(&self, p: P) -> anyhow::Result<usize> {
         let file = File::create(p)?;
         self.write_with::<File, F>(file)
     }
@@ -86,18 +86,18 @@ impl Value {
 ///   - can be gotten by `Value::stringify`
 ///
 /// default is `Indent<1>`, so `Indent` mean `Indent<1>`.
-/// see [`Value::write_with`] and [`Value::load_with`] also.
+/// see [`Value::write_with`] and [`Value::dump_with`] also.
 pub struct Indent<const N: u8 = 1>();
-pub trait StringifyFunction {
-    fn stringify_function(value: &Value) -> String;
+pub trait JsonFormatter {
+    fn format(value: &Value) -> String;
 }
-impl StringifyFunction for Indent<0> {
-    fn stringify_function(value: &Value) -> String {
+impl JsonFormatter for Indent<0> {
+    fn format(value: &Value) -> String {
         value.to_string()
     }
 }
-impl StringifyFunction for Indent<1> {
-    fn stringify_function(value: &Value) -> String {
+impl JsonFormatter for Indent<1> {
+    fn format(value: &Value) -> String {
         value.stringify()
     }
 }
