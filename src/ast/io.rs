@@ -9,32 +9,40 @@ use std::{
 
 impl Value {
     /// parse raw json into ast.
+    /// # example
+    /// ```
+    /// // TODO
+    /// ```
     pub fn parse<J: Into<RawJson>>(j: J) -> anyhow::Result<Value> {
         let json = j.into();
         Parser::new(&json).parse_value()
     }
     /// parse file like raw json into ast. see [`Value::parse`] also.
-    pub fn parse_read<R: Read>(r: R) -> anyhow::Result<Value> {
+    pub fn read<R: Read>(r: R) -> anyhow::Result<Value> {
         let json = BufReader::new(r).lines().map(|l| l.expect("could not read line")).collect();
         Parser::new(&json).parse_value()
     }
     /// parse raw json file specified by path into ast. see [`Value::parse`] also.
-    pub fn parse_path<P: AsRef<Path>>(p: P) -> anyhow::Result<Value> {
+    /// # example
+    /// ```
+    /// // TODO
+    /// ```
+    pub fn load<P: AsRef<Path>>(p: P) -> anyhow::Result<Value> {
         let file = File::open(p)?;
-        Self::parse_read(file)
+        Self::read(file)
     }
+
     /// write ast to file. written string has proper indent. see [`Value::stringify`] also.
-    pub fn stringify_write<W: Write>(&self, w: W) -> anyhow::Result<usize> {
+    pub fn write<W: Write>(&self, w: W) -> anyhow::Result<usize> {
         BufWriter::new(w).write(self.stringify().as_bytes()).context("could not write file")
     }
     /// write ast to file specified by path. written string has proper indent. see [`Value::stringify`] also.
-    pub fn stringify_path<P: AsRef<Path>>(&self, p: P) -> anyhow::Result<usize> {
+    pub fn dump<P: AsRef<Path>>(&self, p: P) -> anyhow::Result<usize> {
         let file = File::create(p)?;
-        self.stringify_write(file)
+        self.write(file)
     }
-
-    /// write ast to file with indent. see [`Value::stringify_path_with`] also.
-    pub fn stringify_write_with<W: Write, F: StringifyFunction>(&self, w: W) -> anyhow::Result<usize> {
+    /// write ast to file with indent. see [`Value::load_with`] also.
+    pub fn write_with<W: Write, F: StringifyFunction>(&self, w: W) -> anyhow::Result<usize> {
         BufWriter::new(w).write(F::stringify_function(self).as_bytes()).context("could not write file")
     }
     /// /// write ast to file specified by path with indent. see [`Indent`] also
@@ -44,10 +52,10 @@ impl Value {
     /// let raw_json = r#"{"key": [1, "two", 3, {"foo": {"bar": "baz"} } ]}"#;
     /// let json = Value::parse(raw_json).unwrap();
     ///
-    /// json.stringify_path_with::<_, Indent<0>>("path/to/write.json");
+    /// json.load_with::<_, Indent<0>>("path/to/write.json");
     /// // {"key":[1,"two",3,{"foo":{"bar":"baz"}}]}
     ///
-    /// json.stringify_path_with::<_, Indent<1>>("path/to/write.json");
+    /// json.load_with::<_, Indent<1>>("path/to/write.json");
     /// // {
     /// //     "key": [
     /// //         1,
@@ -62,12 +70,12 @@ impl Value {
     /// // }
     ///
     /// // `Indent<2>` is not implement, so cause compile error
-    /// // json.stringify_path_with::<_, Indent<2>>("path/to/write.json");
+    /// // json.load_with::<_, Indent<2>>("path/to/write.json");
     ///
     /// ```
-    pub fn stringify_path_with<P: AsRef<Path>, F: StringifyFunction>(&self, p: P) -> anyhow::Result<usize> {
+    pub fn load_with<P: AsRef<Path>, F: StringifyFunction>(&self, p: P) -> anyhow::Result<usize> {
         let file = File::create(p)?;
-        self.stringify_write_with::<File, F>(file)
+        self.write_with::<File, F>(file)
     }
 }
 
@@ -78,7 +86,7 @@ impl Value {
 ///   - can be gotten by `Value::stringify`
 ///
 /// default is `Indent<1>`, so `Indent` mean `Indent<1>`.
-/// see [`Value::stringify_write_with`] and [`Value::stringify_path_with`] also.
+/// see [`Value::write_with`] and [`Value::load_with`] also.
 pub struct Indent<const N: u8 = 1>();
 pub trait StringifyFunction {
     fn stringify_function(value: &Value) -> String;
@@ -137,19 +145,19 @@ mod tests {
             write!(raw_json_file, "{json}")?;
             raw_json_file.seek(SeekFrom::Start(0))?;
 
-            let ast_root1 = Value::parse_read(&raw_json_file)?;
+            let ast_root1 = Value::read(&raw_json_file)?;
             assert_eq!(ast_root1["language"], Value::String("rust".to_string()));
             let mut json_file1 = tempfile::tempfile()?;
-            ast_root1.stringify_write(&json_file1)?;
+            ast_root1.write(&json_file1)?;
             json_file1.seek(SeekFrom::Start(0))?;
 
-            let ast_root2 = Value::parse_read(&json_file1)?;
+            let ast_root2 = Value::read(&json_file1)?;
             assert_eq!(ast_root2["language"], Value::String("rust".to_string()));
             let mut json_file2 = tempfile::tempfile()?;
-            ast_root2.stringify_write_with::<_, Indent<0>>(&json_file2)?;
+            ast_root2.write_with::<_, Indent<0>>(&json_file2)?;
             json_file2.seek(SeekFrom::Start(0))?;
 
-            let ast_root3 = Value::parse_read(&json_file2)?;
+            let ast_root3 = Value::read(&json_file2)?;
             assert_eq!(ast_root3["language"], Value::String("rust".to_string()));
 
             assert_ne!(ast_root1.stringify(), json.to_string());
