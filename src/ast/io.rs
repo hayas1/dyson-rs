@@ -32,26 +32,65 @@ impl Value {
         let file = File::create(p)?;
         self.stringify_write(file)
     }
-    /// write ast to file. if `level` is
-    /// - `0`, no unnecessary space and linefeed is included.
-    /// - rather than `1`, simple indented.
-    ///
-    /// see `to_string` and `stringify` also.
-    pub fn stringify_write_with<W: Write>(&self, w: W, level: u8) -> anyhow::Result<usize> {
-        let write = match level {
-            0 => self.to_string(),
-            _ => self.stringify(),
-        };
-        BufWriter::new(w).write(write.as_bytes()).context("could not write file")
+
+    /// write ast to file with indent. see [`Value::stringify_path_with`] also.
+    pub fn stringify_write_with<W: Write, F: StringifyFunction>(&self, w: W) -> anyhow::Result<usize> {
+        BufWriter::new(w).write(F::stringify_function(self).as_bytes()).context("could not write file")
     }
-    /// write ast to file specified by path. if `level` is
-    /// - `0`, no unnecessary space and linefeed is included.
-    /// - rather than `1`, simple indented.
+    /// /// write ast to file specified by path with indent. see [`Indent`] also
+    /// # example
+    /// ```
+    /// use dyson::{Indent, Ranger, Value};
+    /// let raw_json = r#"{"key": [1, "two", 3, {"foo": {"bar": "baz"} } ]}"#;
+    /// let json = Value::parse(raw_json).unwrap();
     ///
-    /// see `to_string` and `stringify` also.
-    pub fn stringify_path_with<P: AsRef<Path>>(&self, p: P, level: u8) -> anyhow::Result<usize> {
+    /// json.stringify_path_with::<_, Indent<0>>("path/to/write.json");
+    /// // {"key":[1,"two",3,{"foo":{"bar":"baz"}}]}
+    ///
+    /// json.stringify_path_with::<_, Indent<1>>("path/to/write.json");
+    /// // {
+    /// //     "key": [
+    /// //         1,
+    /// //         "two",
+    /// //         3,
+    /// //         {
+    /// //             "foo": {
+    /// //                 "bar": "baz"
+    /// //             }
+    /// //         }
+    /// //     ]
+    /// // }
+    ///
+    /// // `Indent<2>` is not implement, so cause compile error
+    /// // json.stringify_path_with::<_, Indent<2>>("path/to/write.json");
+    ///
+    /// ```
+    pub fn stringify_path_with<P: AsRef<Path>, F: StringifyFunction>(&self, p: P) -> anyhow::Result<usize> {
         let file = File::create(p)?;
-        self.stringify_write_with(file, level)
+        self.stringify_write_with::<File, F>(file)
+    }
+}
+
+/// dyson support 2 level indent output string.
+/// - `Indent<0>`: no unnecessary space and linefeed is included. (minified)
+///   - can be gotten by `Value::to_string`
+/// - `Indent<1>`: normal json indent. (1 line, 1 element basically)
+///   - can be gotten by `Value::stringify`
+///
+/// default is `Indent<1>`, so `Indent` mean `Indent<1>`.
+/// see [`Value::stringify_write_with`] and [`Value::stringify_path_with`] also.
+pub struct Indent<const N: u8 = 1>();
+pub trait StringifyFunction {
+    fn stringify_function(value: &Value) -> String;
+}
+impl StringifyFunction for Indent<0> {
+    fn stringify_function(value: &Value) -> String {
+        value.to_string()
+    }
+}
+impl StringifyFunction for Indent<1> {
+    fn stringify_function(value: &Value) -> String {
+        value.stringify()
     }
 }
 
@@ -107,7 +146,7 @@ mod tests {
             let ast_root2 = Value::parse_read(&json_file1)?;
             assert_eq!(ast_root2["language"], Value::String("rust".to_string()));
             let mut json_file2 = tempfile::tempfile()?;
-            ast_root2.stringify_write_with(&json_file2, 0)?;
+            ast_root2.stringify_write_with::<_, Indent<0>>(&json_file2)?;
             json_file2.seek(SeekFrom::Start(0))?;
 
             let ast_root3 = Value::parse_read(&json_file2)?;
