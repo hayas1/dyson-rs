@@ -1,105 +1,51 @@
-use crate::{parser::Parser, rawjson::RawJson};
-
 use super::Value;
+use crate::{parser::Parser, rawjson::RawJson};
 use anyhow::Context as _;
 use std::{
     fs::File,
-    io::{BufRead, BufReader, BufWriter, Write},
-    path::{Path, PathBuf},
+    io::{BufRead, BufReader, BufWriter, Read, Write},
+    path::Path,
 };
 
 impl Value {
     /// parse raw json into ast.
-    pub fn parse<T: Into<RawJson>>(t: T) -> anyhow::Result<Value> {
-        let json = t.into();
+    pub fn parse<J: Into<RawJson>>(j: J) -> anyhow::Result<Value> {
+        let json = j.into();
         Parser::new(&json).parse_value()
     }
     /// parse file like raw json into ast. see [parse](Value) also.
-    pub fn parse_read<T: ReadJson>(t: T) -> anyhow::Result<Value> {
-        let json = t.read_json()?;
+    pub fn parse_read<R: Read>(r: R) -> anyhow::Result<Value> {
+        let json = BufReader::new(r).lines().map(|l| l.expect("could not read line")).collect();
         Parser::new(&json).parse_value()
     }
+    /// parse raw json file specified by path into ast. see [parse](Value) also.
+    pub fn parse_path<P: AsRef<Path>>(p: P) -> anyhow::Result<Value> {
+        let file = File::open(p)?;
+        Self::parse_read(file)
+    }
     /// write ast to file. written string has proper indent. see [stringify](Value) also.
-    pub fn stringify_write<T: WriteJson>(&self, writer: T) -> anyhow::Result<usize> {
-        writer.write_json(&self.stringify())
+    pub fn stringify_write<W: Write>(&self, w: W) -> anyhow::Result<usize> {
+        BufWriter::new(w).write(self.stringify().as_bytes()).context("could not write file")
     }
-    /// write ast to file. if `min` is true, no unnecessary space and linefeed is included.
+    /// write ast to file specified by path. written string has proper indent. see [stringify](Value) also.
+    pub fn stringify_path<P: AsRef<Path>>(&self, p: P) -> anyhow::Result<usize> {
+        let file = File::create(p)?;
+        self.stringify_write(file)
+    }
+    /// write ast to file. if `level` is `0`, no unnecessary space and linefeed is included.
     /// see [to_string](Value) also.
-    pub fn stringify_min_write<T: WriteJson>(&self, writer: T) -> anyhow::Result<usize> {
-        writer.write_json(&self.to_string())
+    pub fn stringify_write_with<W: Write>(&self, w: W, level: u8) -> anyhow::Result<usize> {
+        let write = match level {
+            0 => self.to_string(),
+            _ => self.stringify(),
+        };
+        BufWriter::new(w).write(write.as_bytes()).context("could not write file")
     }
-}
-
-struct Buf<B>(B);
-pub trait ReadJson {
-    fn read_json(self) -> anyhow::Result<RawJson>;
-}
-impl<B: BufRead> ReadJson for Buf<B> {
-    fn read_json(self) -> anyhow::Result<RawJson> {
-        let mut json = Vec::<String>::new();
-        for line in self.0.lines() {
-            json.push(line?.chars().collect())
-        }
-        Ok(json.into_iter().collect())
-    }
-}
-impl ReadJson for File {
-    fn read_json(self) -> anyhow::Result<RawJson> {
-        Buf(BufReader::new(self)).read_json()
-    }
-}
-impl<'a> ReadJson for &'a File {
-    fn read_json(self) -> anyhow::Result<RawJson> {
-        Buf(BufReader::new(self)).read_json()
-    }
-}
-impl<'a> ReadJson for &'a Path {
-    fn read_json(self) -> anyhow::Result<RawJson> {
-        File::open(&self)?.read_json()
-    }
-}
-impl<'a> ReadJson for &'a PathBuf {
-    fn read_json(self) -> anyhow::Result<RawJson> {
-        File::open(&self)?.read_json()
-    }
-}
-impl<'a> ReadJson for &'a str {
-    fn read_json(self) -> anyhow::Result<RawJson> {
-        File::open(&self)?.read_json()
-    }
-}
-
-pub trait WriteJson {
-    fn write_json(self, json: &str) -> anyhow::Result<usize>;
-}
-impl<'a, T: Write> WriteJson for Buf<&'a mut BufWriter<T>> {
-    fn write_json(self, json: &str) -> anyhow::Result<usize> {
-        self.0.write(json.as_bytes()).context("file write error")
-    }
-}
-impl WriteJson for File {
-    fn write_json(self, json: &str) -> anyhow::Result<usize> {
-        Buf(&mut BufWriter::new(self)).write_json(json)
-    }
-}
-impl<'a> WriteJson for &'a File {
-    fn write_json(self, json: &str) -> anyhow::Result<usize> {
-        Buf(&mut BufWriter::new(self)).write_json(json)
-    }
-}
-impl<'a> WriteJson for &'a Path {
-    fn write_json(self, json: &str) -> anyhow::Result<usize> {
-        File::create(&self)?.write_json(json)
-    }
-}
-impl<'a> WriteJson for &'a PathBuf {
-    fn write_json(self, json: &str) -> anyhow::Result<usize> {
-        File::create(&self)?.write_json(json)
-    }
-}
-impl<'a> WriteJson for &'a str {
-    fn write_json(self, json: &str) -> anyhow::Result<usize> {
-        File::create(&self)?.write_json(json)
+    /// write ast to file specified by path. if `level` is `0`, no unnecessary space and linefeed is included.
+    /// see [to_string](Value) also.
+    pub fn stringify_path_with<P: AsRef<Path>>(&self, p: P, level: u8) -> anyhow::Result<usize> {
+        let file = File::create(p)?;
+        self.stringify_write_with(file, level)
     }
 }
 
@@ -155,7 +101,7 @@ mod tests {
             let ast_root2 = Value::parse_read(&json_file1)?;
             assert_eq!(ast_root2["language"], Value::String("rust".to_string()));
             let mut json_file2 = tempfile::tempfile()?;
-            ast_root2.stringify_min_write(&json_file2)?;
+            ast_root2.stringify_write_with(&json_file2, 0)?;
             json_file2.seek(SeekFrom::Start(0))?;
 
             let ast_root3 = Value::parse_read(&json_file2)?;

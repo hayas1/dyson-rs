@@ -19,7 +19,7 @@ impl Value {
     }
 }
 
-pub struct Ranger<I>(pub I);
+pub struct Ranger<R>(pub R);
 pub trait JsonIndex {
     type Output: ?Sized;
     fn gotten(self, value: &Value) -> Option<&Self::Output>;
@@ -82,8 +82,8 @@ impl JsonIndex for usize {
         }
     }
 }
-impl<I: SliceIndex<[Value]>> JsonIndex for Ranger<I> {
-    type Output = I::Output;
+impl<R: SliceIndex<[Value]>> JsonIndex for Ranger<R> {
+    type Output = R::Output;
     fn gotten(self, value: &Value) -> Option<&Self::Output> {
         match value {
             Value::Array(v) => v.get(self.0),

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 /// `Value` is ast node of json. see [Introducing JSON](https://www.json.org/json-en.html) also.
 /// # Examples
-/// ```no_run
+/// ``` no_run
 /// use dyson::{Value, Ranger};
 ///
 /// // `path/to/read.json`
@@ -17,7 +17,7 @@ use std::collections::HashMap;
 /// //     "keyword": ["rust", "json", "parser"]
 /// // }
 /// // read json
-/// let json = Value::parse_read("path/to/read.json").expect("invalid path or json structure");
+/// let json = Value::parse_path("path/to/read.json").expect("invalid path or json structure");
 ///
 /// // access json
 /// assert_eq!(json["language"], Value::String("rust".to_string()));
@@ -26,7 +26,7 @@ use std::collections::HashMap;
 /// assert_eq!(json.get("get"), None);
 ///
 /// // write json
-/// json.stringify_write("path/to/write.json").expect("failed to write json");
+/// json.stringify_path("path/to/write.json").expect("failed to write json");
 /// ```
 #[derive(PartialEq, Debug)]
 pub enum Value {
