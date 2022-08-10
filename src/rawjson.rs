@@ -6,12 +6,19 @@ pub struct RawJson {
 }
 
 impl RawJson {
+    /// return the number of rows. this method's complexity is **O(1)**.
     pub fn rows(&self) -> usize {
         self.json.len()
     }
 
+    /// check is it empty. this method's complexity is **O(1)**.
     pub fn is_empty(&self) -> bool {
         self.rows() == 0
+    }
+
+    /// get iterator of raw json
+    pub fn iter(&self) -> impl Iterator<Item = &Vec<char>> {
+        self.json.iter()
     }
 }
 
@@ -23,7 +30,13 @@ impl std::fmt::Display for RawJson {
 
 impl FromIterator<String> for RawJson {
     fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> Self {
-        Self { json: iter.into_iter().map(|s| s.chars().collect()).collect() }
+        Self {
+            json: iter
+                .into_iter()
+                .flat_map(|s| s.replace("\r\n", "\n").split('\n').map(|s| s.to_string()).collect::<Vec<_>>())
+                .map(|s| s.chars().collect())
+                .collect(),
+        }
     }
 }
 impl<'a> FromIterator<&'a str> for RawJson {
@@ -54,11 +67,6 @@ impl IntoIterator for RawJson {
     type IntoIter = IntoIter<Self::Item>;
     fn into_iter(self) -> Self::IntoIter {
         self.json.into_iter()
-    }
-}
-impl RawJson {
-    pub fn iter(&self) -> impl Iterator<Item = &Vec<char>> {
-        self.json.iter()
     }
 }
 
