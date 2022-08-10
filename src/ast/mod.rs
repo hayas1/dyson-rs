@@ -4,8 +4,8 @@ pub mod io;
 
 use std::collections::HashMap;
 
-/// `Value` is ast node of json. see [Introducing JSON](https://www.json.org/json-en.html) also.
-/// # Examples
+/// [`Value`] is ast node of json. see [Introducing JSON](https://www.json.org/json-en.html) also.
+/// # examples
 /// ``` no_run
 /// use dyson::{Value, Ranger};
 ///
@@ -30,10 +30,10 @@ use std::collections::HashMap;
 /// ```
 #[derive(PartialEq, Debug)]
 pub enum Value {
-    /// correspond to object of json.
+    /// correspond to object of json. object can be represented by `HashMap` in rust.
     Object(HashMap<String, Value>),
 
-    /// correspond to array of json.
+    /// correspond to array of json. array can be represented by `Vec` in rust.
     Array(Vec<Value>),
 
     /// correspond to bool of json.
@@ -45,10 +45,10 @@ pub enum Value {
     /// correspond to string of json.
     String(String),
 
-    /// correspond to integer of json.
+    /// correspond to integer of json. json has only number, but rust has integer.
     Integer(i64),
 
-    /// correspond to float of json.
+    /// correspond to float of json. json has only number, but rust has float.
     Float(f64),
 }
 

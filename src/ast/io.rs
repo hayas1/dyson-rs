@@ -13,27 +13,30 @@ impl Value {
         let json = j.into();
         Parser::new(&json).parse_value()
     }
-    /// parse file like raw json into ast. see [parse](Value) also.
+    /// parse file like raw json into ast. see [`Value::parse`] also.
     pub fn parse_read<R: Read>(r: R) -> anyhow::Result<Value> {
         let json = BufReader::new(r).lines().map(|l| l.expect("could not read line")).collect();
         Parser::new(&json).parse_value()
     }
-    /// parse raw json file specified by path into ast. see [parse](Value) also.
+    /// parse raw json file specified by path into ast. see [`Value::parse`] also.
     pub fn parse_path<P: AsRef<Path>>(p: P) -> anyhow::Result<Value> {
         let file = File::open(p)?;
         Self::parse_read(file)
     }
-    /// write ast to file. written string has proper indent. see [stringify](Value) also.
+    /// write ast to file. written string has proper indent. see [`Value::stringify`] also.
     pub fn stringify_write<W: Write>(&self, w: W) -> anyhow::Result<usize> {
         BufWriter::new(w).write(self.stringify().as_bytes()).context("could not write file")
     }
-    /// write ast to file specified by path. written string has proper indent. see [stringify](Value) also.
+    /// write ast to file specified by path. written string has proper indent. see [`Value::stringify`] also.
     pub fn stringify_path<P: AsRef<Path>>(&self, p: P) -> anyhow::Result<usize> {
         let file = File::create(p)?;
         self.stringify_write(file)
     }
-    /// write ast to file. if `level` is `0`, no unnecessary space and linefeed is included.
-    /// see [to_string](Value) also.
+    /// write ast to file. if `level` is
+    /// - `0`, no unnecessary space and linefeed is included.
+    /// - rather than `1`, simple indented.
+    ///
+    /// see `to_string` and `stringify` also.
     pub fn stringify_write_with<W: Write>(&self, w: W, level: u8) -> anyhow::Result<usize> {
         let write = match level {
             0 => self.to_string(),
@@ -41,8 +44,11 @@ impl Value {
         };
         BufWriter::new(w).write(write.as_bytes()).context("could not write file")
     }
-    /// write ast to file specified by path. if `level` is `0`, no unnecessary space and linefeed is included.
-    /// see [to_string](Value) also.
+    /// write ast to file specified by path. if `level` is
+    /// - `0`, no unnecessary space and linefeed is included.
+    /// - rather than `1`, simple indented.
+    ///
+    /// see `to_string` and `stringify` also.
     pub fn stringify_path_with<P: AsRef<Path>>(&self, p: P, level: u8) -> anyhow::Result<usize> {
         let file = File::create(p)?;
         self.stringify_write_with(file, level)

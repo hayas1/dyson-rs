@@ -5,21 +5,49 @@ use std::{
 };
 
 impl Value {
-    /// access json value. get reference of it.
-    /// - if index is position and the value is array, return the element, else return `None`
-    /// - if index is range and the value is array, return these element, else return `None`
-    /// - if index is string and the value is object, return the element, else return `None`
+    /// access json value, and get reference of it. see indexing [`Ranger`] also.
+    /// - if value is array
+    ///   - if index is position, return the element, else return `None`
+    ///   - if index is range, return these elements, else return `None`
+    /// - if value is object
+    ///   - index is string, return the element, else return `None`
+    /// # examples
+    /// ```
+    /// use dyson::{Ranger, Value};
+    /// let raw_json = r#"{"foo": [1, "two", 3], "bar": 4}"#;
+    /// let json = Value::parse(raw_json).unwrap();
+    ///
+    /// let foo = json.get("foo");
+    /// assert_eq!(foo, Some(&Value::Array(vec![Value::Integer(1), Value::String("two".to_string()), Value::Integer(3)])));
+    /// assert_eq!(foo.unwrap().get(Ranger(..=1)), Some(&[Value::Integer(1), Value::String("two".to_string())][..]));
+    /// assert_eq!(foo.unwrap().get("bar"), None);
+    ///
+    /// assert_eq!(json.get("bar"), Some(&Value::Integer(4)));
+    /// assert_eq!(json.get("baz"), None);
+    /// ```
     pub fn get<I: JsonIndex>(&self, index: I) -> Option<&I::Output> {
         index.gotten(self)
     }
 
-    /// access json value. get mutable reference of it. see [get](Value) also.
+    /// access json value. get mutable reference of it. see [`Value::get`] also.
     pub fn get_mut<I: JsonIndex>(&mut self, index: I) -> Option<&mut I::Output> {
         index.gotten_mut(self)
     }
 }
 
-pub struct Ranger<R>(pub R);
+/// [`Ranger`] is used for accessing [`Value`] by range operator. see [`Value::get`] also.
+/// # example
+/// ```
+/// use dyson::{Ranger, Value};
+/// let raw_json = r#"{"key": [1, "two", 3, "four", 5]}"#;
+/// let json = Value::parse(raw_json).unwrap();
+///
+/// assert_eq!(json["key"][Ranger(..2)], vec![Value::Integer(1), Value::String("two".to_string())]);
+/// ```
+pub struct Ranger<R>(
+    /// range object like `start..end`, `..end`, `start..=end`, and so on.
+    pub R,
+);
 pub trait JsonIndex {
     type Output: ?Sized;
     fn gotten(self, value: &Value) -> Option<&Self::Output>;
