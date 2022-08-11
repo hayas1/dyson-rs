@@ -7,12 +7,12 @@ use std::collections::HashMap;
 
 /// [`Value`] is ast node of json. see [Introducing JSON](https://www.json.org/json-en.html) also.
 /// # supports
-/// - parse from str, file, and path. see [`Value::parse`], [`Value::read`], and [`Value::load`].
-/// - dump to str, file, and path. see [`Value::stringify`], [`Value::write`], and [`Value::dump`].
-/// - access to parsed json element (support index access). see [`index::Ranger`], [`Value::get`], and so on.
+/// - ***parser*** parse from str, file, and path. see [`Value::parse`], [`Value::read`], and [`Value::load`].
+/// - ***stringify*** dump to str, file, and path. see [`Value::stringify`], [`Value::write`], and [`Value::dump`].
+/// - ***indexing*** access to parsed json element (support index access). see [`index::Ranger`], [`Value::get`], and so on.
 ///   - and evaluate it expected type (unexpected type cause panic). see [`Value::object`] and so on.
-/// - (yet) edit ast structure. see // TODO
-/// - (yet) iterate with dfs order. see // TODO
+/// - ***recombination***(developing) edit ast structure. see [`Value::swap`], [`Value::update_with`] and so on.
+/// - ***visitor***(yet) iterate with dfs order. see // TODO
 ///
 /// # examples
 /// this example is read from and write to `String`.
@@ -35,6 +35,16 @@ use std::collections::HashMap;
 /// assert_eq!(json["version"].float(), &0.1);
 /// assert_eq!(json["keyword"][Ranger(1..)], [Value::String("json".to_string()), Value::String("parser".to_string())]);
 /// assert_eq!(json.get("get"), None);
+///
+/// // edit json
+/// let mut json = json;
+/// json["language"] = "ruby".into();
+/// assert_eq!(json["language"], Value::String("ruby".to_string()));
+/// let prev_version = json["version"].swap(&mut 0.2.into());
+/// assert_eq!(prev_version.float(), &0.1);
+/// assert_eq!(json["version"].float(), &0.2);
+/// json["keyword"].update_with(|v| v.array().iter().map(|k| Value::from(k.string().to_uppercase())).collect());
+/// assert_eq!(json["keyword"].array(), &vec!["RUST".into(), "JSON".into(), "PARSER".into()]);
 ///
 /// // write json
 /// let str_json = json.stringify();

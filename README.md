@@ -26,6 +26,25 @@ println!("{}", json["version"].float()); // 0.1
 println!("{:?}", &json["keyword"][Ranger(1..)]); // [Value::String("json"), Value::String("parser")]
 println!("{:?}", json.get("foo")); // None
 
+//  edit json
+let mut json = json;
+json["language"] = "ruby".into();
+println!("{}", json["language"].string()); // ruby
+json["version"].swap(&mut 0.2.into());
+println!("{}", json["version"].float()); // 0.2
+json["keyword"].update_with(|v| v.array().iter().map(|k| Value::from(k.string().to_uppercase())).collect());
+println!("{:?}", json["keyword"].array()); // ["RUST", "JSON", "PARSER"]
+
 // write json
 json.dump("path/to/write.json").expect("failed to write json");
+// {
+//     "version": 0.2,
+//     "notation": "json",
+//     "language": "ruby",
+//     "keyword": [
+//         "RUST",
+//         "JSON",
+//         "PARSER"
+//     ]
+// }
 ```
