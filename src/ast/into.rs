@@ -227,6 +227,17 @@ impl From<f64> for Value {
     }
 }
 
+impl FromIterator<(String, Value)> for Value {
+    fn from_iter<I: IntoIterator<Item = (String, Value)>>(iter: I) -> Self {
+        Value::Object(iter.into_iter().collect())
+    }
+}
+impl FromIterator<Value> for Value {
+    fn from_iter<I: IntoIterator<Item = Value>>(iter: I) -> Self {
+        Value::Array(iter.into_iter().collect())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::syntax::Parser;
