@@ -137,11 +137,9 @@ fn quote(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rawjson::RawJson;
-
     #[test]
     fn test_stringify_json() {
-        let json: RawJson = [
+        let json: String = [
             r#"{"#,
             r#"    "language": "rust","#,
             r#"    "notation": "json","#,
@@ -159,6 +157,6 @@ mod tests {
         let ast_root3 = Value::parse(json3).unwrap();
         assert_eq!(ast_root, ast_root2);
         assert_eq!(ast_root2, ast_root3);
-        assert_eq!(ast_root, ast_root3);
+        assert_eq!(ast_root3, ast_root);
     }
 }

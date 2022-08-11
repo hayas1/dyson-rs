@@ -8,48 +8,100 @@ use std::{
 };
 
 impl Value {
-    /// parse raw json into ast.
+    /// parse string like raw json into ast.
     /// # example
     /// ```
-    /// // TODO
+    /// use dyson::Value;
+    /// let raw = r#"{ "key": [ 1, "two", 3, {"foo": {"bar": "baz"} } ] }"#;
+    /// println!("{}", Value::parse(raw).unwrap());
+    ///
+    /// let raw2 = vec!["{", "\"key\": [", "1,", "\"two\",", "3,", "{\"foo\": {", "\"bar\": \"baz\"", "}", "}", "]", "}"];
+    /// println!("{}", Value::parse(raw2.into_iter().collect::<String>()).unwrap());
+    /// // or
+    /// use dyson::rawjson::RawJson;
+    /// println!("{}", Value::parse(raw2.into_iter().collect::<RawJson>()).unwrap());
     /// ```
     pub fn parse<J: Into<RawJson>>(j: J) -> anyhow::Result<Value> {
         let json = j.into();
         Parser::new(&json).parse_value()
     }
-    /// parse file like raw json into ast. see [`Value::parse`] also.
+    /// parse file like raw json into ast. see [`Value::load`] also.
+    /// # example
+    /// ```
+    /// use dyson::Value;
+    /// use std::fs::File;
+    /// let file = File::open("path/to/read.json").unwrap();
+    /// let json = Value::read(file).unwrap();
+    ///
+    /// println!("{json}");
+    /// ```
     pub fn read<R: Read>(r: R) -> anyhow::Result<Value> {
-        let json = BufReader::new(r).lines().map(|l| l.expect("could not read line")).collect();
-        Parser::new(&json).parse_value()
+        let json: RawJson = BufReader::new(r).lines().map(|l| l.expect("could not read line")).collect();
+        Value::parse(json)
     }
     /// parse raw json file specified by path into ast. see [`Value::parse`] also.
     /// # example
     /// ```
-    /// // TODO
+    /// use dyson::Value;
+    /// // `path/to/read.json`
+    /// // {
+    /// //     "language": "rust",
+    /// //     "notation": "json",
+    /// //     "version": 0.1,
+    /// //     "keyword": ["rust", "json", "parser"]
+    /// // }
+    /// let json = Value::load("path/to/read.json").unwrap();
+    ///
+    /// println!("{json}");
+    /// // {"language":"rust","version":0.1,"keyword":["rust","json","parser"],"notation":"json"}
     /// ```
     pub fn load<P: AsRef<Path>>(p: P) -> anyhow::Result<Value> {
         let file = File::open(p)?;
         Self::read(file)
     }
 
-    /// write ast to file. written string has proper indent. see [`Value::stringify`] also.
+    /// write ast to file. written string has proper indent. see [`Value::dump`] also.
+    /// /// # example
+    /// ```
+    /// use dyson::Value;
+    /// let raw_json = r#"{ "key": [ 1, "two", 3, {"foo": {"bar": "baz"} } ] }"#;
+    /// let json = Value::parse(raw_json).unwrap();
+    ///
+    /// use std::fs::File;
+    /// let file = File::create("path/to/write.json").unwrap();
+    /// json.write(file).unwrap();
+    /// ```
     pub fn write<W: Write>(&self, w: W) -> anyhow::Result<usize> {
         BufWriter::new(w).write(Indent::<1>::format(self).as_bytes()).context("could not write file")
     }
     /// write ast to file specified by path. written string has proper indent. see [`Value::stringify`] also.
+    /// # example
+    /// ```
+    /// use dyson::Value;
+    /// let raw_json = r#"{ "key": [ 1, "two", 3, {"foo": {"bar": "baz"} } ] }"#;
+    /// let json = Value::parse(raw_json).unwrap();
+    ///
+    /// json.dump("path/to/write.json").unwrap();
+    /// // or
+    /// use std::path::Path;
+    /// json.dump(Path::new("path/to/write.json")).unwrap();
+    /// // or
+    /// use std::path::PathBuf;
+    /// json.dump(PathBuf::from("path").join("to").join("write.json")).unwrap();
+    /// ```
     pub fn dump<P: AsRef<Path>>(&self, p: P) -> anyhow::Result<usize> {
         let file = File::create(p)?;
         self.write(file)
     }
-    /// write ast to file with indent. see [`Value::dump_with`] also.
+    /// write ast to file with indent. see [`Value::write`] and [`Value::dump_with`] also.
     pub fn write_with<W: Write, F: JsonFormatter>(&self, w: W) -> anyhow::Result<usize> {
         BufWriter::new(w).write(F::format(self).as_bytes()).context("could not write file")
     }
     /// /// write ast to file specified by path with indent. see [`Indent`] also
     /// # example
     /// ```
-    /// use dyson::{Indent, Ranger, Value};
-    /// let raw_json = r#"{"key": [1, "two", 3, {"foo": {"bar": "baz"} } ]}"#;
+    /// use dyson::{Indent, Value};
+    /// let raw_json = r#"{ "key": [ 1, "two", 3, {"foo": {"bar": "baz"} } ] }"#;
     /// let json = Value::parse(raw_json).unwrap();
     ///
     /// json.dump_with::<_, Indent<0>>("path/to/write.json");
@@ -71,8 +123,8 @@ impl Value {
     ///
     /// // `Indent<2>` is not implement, so cause compile error
     /// // json.dump_with::<_, Indent<2>>("path/to/write.json");
-    ///
     /// ```
+    /// see `Value::to_string` and `Value::stringify` also.
     pub fn dump_with<P: AsRef<Path>, F: JsonFormatter>(&self, p: P) -> anyhow::Result<usize> {
         let file = File::create(p)?;
         self.write_with::<File, F>(file)

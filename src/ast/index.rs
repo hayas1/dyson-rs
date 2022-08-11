@@ -151,8 +151,6 @@ impl<'a, I: JsonIndex> IndexMut<I> for Value {
 
 #[cfg(test)]
 mod tests {
-    use crate::rawjson::RawJson;
-
     use super::*;
 
     #[test]
@@ -165,7 +163,7 @@ mod tests {
             r#"    "keyword": ["rust", "json", "parser", 1, 2, 3]"#,
             r#"}"#,
         ];
-        let ast_root = Value::parse(json.into_iter().collect::<RawJson>()).unwrap();
+        let ast_root = Value::parse(json.into_iter().collect::<String>()).unwrap();
         assert_eq!(ast_root["language"], Value::String("rust".to_string()));
         assert_eq!(ast_root["version"], Value::Float(0.1));
         assert_eq!(ast_root["keyword"][1], Value::String("json".to_string()));
