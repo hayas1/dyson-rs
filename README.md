@@ -17,6 +17,7 @@ TODO
 use dyson::{Value, Ranger};
 // read json
 let json = Value::load("path/to/read.json").expect("invalid path or json structure");
+
 // access json
 if let Value::String(language) = &json["language"] {
     println!("{}", language) // rust
@@ -24,6 +25,7 @@ if let Value::String(language) = &json["language"] {
 println!("{}", json["version"].evaluate_float()); // 0.1
 println!("{:?}", &json["keyword"][Ranger(1..)]); // [Value::String("json"), Value::String("parser")]
 println!("{:?}", json.get("foo")); // None
+
 // write json
 json.dump("path/to/write.json").expect("failed to write json");
 ```
