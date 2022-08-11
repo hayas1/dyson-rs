@@ -27,7 +27,7 @@ impl Value {
     }
     /// parse file like raw json into ast. see [`Value::load`] also.
     /// # example
-    /// ```
+    /// ```no_run
     /// use dyson::Value;
     /// use std::fs::File;
     /// let file = File::open("path/to/read.json").unwrap();
@@ -41,7 +41,7 @@ impl Value {
     }
     /// parse raw json file specified by path into ast. see [`Value::parse`] also.
     /// # example
-    /// ```
+    /// ```no_run
     /// use dyson::Value;
     /// // `path/to/read.json`
     /// // {
