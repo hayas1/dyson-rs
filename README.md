@@ -1,5 +1,5 @@
 # dyson
-dynamic json parser ([see document](https://hayas1.github.io/dyson/dyson/)).
+dynamic json parser (more, see [document](https://hayas1.github.io/dyson/dyson/)).
 
 # usage
 TODO

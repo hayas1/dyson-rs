@@ -6,9 +6,9 @@ use std::collections::HashMap;
 
 /// [`Value`] is ast node of json. see [Introducing JSON](https://www.json.org/json-en.html) also.
 /// # supports
-/// - parse from str, file, and path. see [`Value::parse`], [`Value::read`], [`Value::load`].
-/// - dump to str, file, and path. see [`Value::stringify`], [`Value::write`], [`Value::dump`].
-/// - access to parsed json element (support index access). see [`Value::get`] and so on.
+/// - parse from str, file, and path. see [`Value::parse`], [`Value::read`], and [`Value::load`].
+/// - dump to str, file, and path. see [`Value::stringify`], [`Value::write`], and [`Value::dump`].
+/// - access to parsed json element (support index access). see [`index::Ranger`], [`Value::get`], and so on.
 ///   - and evaluate it expected type (unexpected type cause panic). see [`Value::evaluate_object`] and so on.
 /// - (yet) edit ast structure. see // TODO
 /// - (yet) iterate with dfs order. see // TODO
