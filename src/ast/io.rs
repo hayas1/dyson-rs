@@ -99,7 +99,7 @@ impl Value {
     }
     /// write ast to file specified by path with indent. see [`Indent`] also
     /// # examples
-    /// ```ignore
+    /// ```compile_fail
     /// use dyson::{Indent, Value};
     /// let raw_json = r#"{ "key": [ 1, "two", 3, { "foo": { "bar": "baz" } } ] }"#;
     /// let json = Value::parse(raw_json).unwrap();
