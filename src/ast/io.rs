@@ -13,13 +13,18 @@ impl Value {
     /// ```
     /// use dyson::Value;
     /// let raw = r#"{ "key": [ 1, "two", 3, { "foo": { "bar": "baz" } } ] }"#;
-    /// println!("{}", Value::parse(raw).unwrap());
+    /// let json = Value::parse(raw).unwrap();
+    /// println!("{}", json); // {"key":[1,"two",3,{"foo":{"bar":"baz"}}]}
     ///
     /// let raw2 = vec!["{", "\"key\": [", "1,", "\"two\",", "3,", "{\"foo\": {", "\"bar\": \"baz\"", "}", "}", "]", "}"];
-    /// println!("{}", Value::parse(raw2.iter().cloned().collect::<String>()).unwrap());
+    /// let json1 = Value::parse(raw2.iter().cloned().collect::<String>()).unwrap();
     /// // or
     /// use dyson::rawjson::RawJson;
-    /// println!("{}", Value::parse(raw2.into_iter().collect::<RawJson>()).unwrap());
+    /// let json2 = Value::parse(raw2.into_iter().collect::<RawJson>()).unwrap();
+    ///
+    /// assert_eq!(json, json1);
+    /// assert_eq!(json, json2);
+    /// assert_eq!(json1, json2);
     /// ```
     pub fn parse<J: Into<RawJson>>(j: J) -> anyhow::Result<Value> {
         let json = j.into();
