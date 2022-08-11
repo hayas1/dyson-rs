@@ -1,55 +1,47 @@
 use super::Value;
 use std::collections::HashMap;
 
+/// evaluate `Value` to corresponded object such as `HashMap`, `Vec`, `bool`, `str`, `i64`, or `f64`.
+/// # panics
+/// call different type evaluate method cause panic.
+/// for example, if call [`Value::evaluate_object`] to `Value::Array`, it will panic.
 impl Value {
-    /// evaluate `Object` node as `HashMap`.
-    /// # panics
-    /// panic if it is not `Object` node.
     pub fn evaluate_object(&self) -> &HashMap<String, Value> {
         match self {
             Value::Object(m) => m,
             _ => panic!("only Object can convert into HashMap, but {}", self.node_type()),
         }
     }
-    /// evaluate `Array` node as `Vec`.
-    /// # panics
-    /// panic if it is not `Array` node.
     pub fn evaluate_array(&self) -> &Vec<Value> {
         match self {
             Value::Array(v) => v,
             _ => panic!("only Array can convert into Vec, but {}", self.node_type()),
         }
     }
-    /// evaluate `Bool` node as `bool`.
-    /// # panics
-    /// panic if it is not `Bool` node.
     pub fn evaluate_bool(&self) -> &bool {
         match self {
             Value::Bool(b) => b,
             _ => panic!("only Bool can convert into bool, but {}", self.node_type()),
         }
     }
-    /// evaluate `String` node as `&str`.
-    /// # panics
-    /// panic if it is not `String` node.
+    pub fn evaluate_null(&self) {
+        match self {
+            Value::Null => (),
+            _ => panic!("only Null can convert into null, but {}", self.node_type()),
+        }
+    }
     pub fn evaluate_string(&self) -> &str {
         match self {
             Value::String(s) => s,
             _ => panic!("only String can convert into &str, but {}", self.node_type()),
         }
     }
-    /// evaluate `Integer` node as `i64`.
-    /// # panics
-    /// panic if it is not `Integer` node.
     pub fn evaluate_integer(&self) -> &i64 {
         match self {
             Value::Integer(i) => i,
             _ => panic!("only Integer can convert into i64, but {}", self.node_type()),
         }
     }
-    /// evaluate `Float` node as `f64`.
-    /// # panics
-    /// panic if it is not `Float` node.
     pub fn evaluate_float(&self) -> &f64 {
         match self {
             Value::Float(f) => f,
@@ -160,6 +152,7 @@ impl<'a> From<&'a Value> for &'a f64 {
     }
 }
 
+/// check node type methods.
 impl Value {
     pub fn is_object(&self) -> bool {
         matches!(self, Value::Object(_))

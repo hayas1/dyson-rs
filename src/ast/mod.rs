@@ -5,19 +5,29 @@ pub mod io;
 use std::collections::HashMap;
 
 /// [`Value`] is ast node of json. see [Introducing JSON](https://www.json.org/json-en.html) also.
+/// # supports
+/// - parse from str, file, and path. see [`Value::parse`], [`Value::read`], [`Value::load`].
+/// - dump to str, file, and path. see [`Value::stringify`], [`Value::write`], [`Value::dump`].
+/// - access to parsed json element (support index access). see [`Value::get`] and so on.
+///   - and evaluate it expected type (unexpected type cause panic). see [`Value::evaluate_object`] and so on.
+/// - (yet) edit ast structure. see // TODO
+/// - (yet) iterate with dfs order. see // TODO
+///
 /// # examples
-/// ``` no_run
+/// this example is read from and write to `String`.
+/// read from and write to file, see [crate] and [`Value::load`], [`Value::dump`] also.
+/// ```
 /// use dyson::{Value, Ranger};
 ///
-/// // `path/to/read.json`
-/// // {
-/// //     "language": "rust",
-/// //     "notation": "json",
-/// //     "version": 0.1,
-/// //     "keyword": ["rust", "json", "parser"]
-/// // }
+/// let raw_json = r#"
+/// {
+///     "language": "rust",
+///     "notation": "json",
+///     "version": 0.1,
+///     "keyword": ["rust", "json", "parser"]
+/// }"#;
 /// // read json
-/// let json = Value::load("path/to/read.json").expect("invalid path or json structure");
+/// let json = Value::parse(raw_json).unwrap();
 ///
 /// // access json
 /// assert_eq!(json["language"], Value::String("rust".to_string()));
@@ -26,7 +36,8 @@ use std::collections::HashMap;
 /// assert_eq!(json.get("get"), None);
 ///
 /// // write json
-/// json.dump("path/to/write.json").expect("failed to write json");
+/// let str_json = json.stringify();
+/// assert!(str_json.contains("\"language\""));
 /// ```
 #[derive(PartialEq, Debug)]
 pub enum Value {

@@ -9,7 +9,7 @@ use std::{
 
 impl Value {
     /// parse string like raw json into ast.
-    /// # example
+    /// # examples
     /// ```
     /// use dyson::Value;
     /// let raw = r#"{ "key": [ 1, "two", 3, {"foo": {"bar": "baz"} } ] }"#;
@@ -26,7 +26,7 @@ impl Value {
         Parser::new(&json).parse_value()
     }
     /// parse file like raw json into ast. see [`Value::load`] also.
-    /// # example
+    /// # examples
     /// ```no_run
     /// use dyson::Value;
     /// use std::fs::File;
@@ -40,7 +40,7 @@ impl Value {
         Value::parse(json)
     }
     /// parse raw json file specified by path into ast. see [`Value::parse`] also.
-    /// # example
+    /// # examples
     /// ```no_run
     /// use dyson::Value;
     /// // `path/to/read.json`
@@ -61,7 +61,7 @@ impl Value {
     }
 
     /// write ast to file. written string has proper indent. see [`Value::dump`] also.
-    /// /// # example
+    /// # examples
     /// ```no_run
     /// use dyson::Value;
     /// let raw_json = r#"{ "key": [ 1, "two", 3, {"foo": {"bar": "baz"} } ] }"#;
@@ -75,7 +75,7 @@ impl Value {
         BufWriter::new(w).write(Indent::<1>::format(self).as_bytes()).context("could not write file")
     }
     /// write ast to file specified by path. written string has proper indent. see [`Value::stringify`] also.
-    /// # example
+    /// # examples
     /// ```no_run
     /// use dyson::Value;
     /// let raw_json = r#"{ "key": [ 1, "two", 3, {"foo": {"bar": "baz"} } ] }"#;
@@ -97,8 +97,8 @@ impl Value {
     pub fn write_with<W: Write, F: JsonFormatter>(&self, w: W) -> anyhow::Result<usize> {
         BufWriter::new(w).write(F::format(self).as_bytes()).context("could not write file")
     }
-    /// /// write ast to file specified by path with indent. see [`Indent`] also
-    /// # example
+    /// write ast to file specified by path with indent. see [`Indent`] also
+    /// # examples
     /// ```
     /// use dyson::{Indent, Value};
     /// let raw_json = r#"{ "key": [ 1, "two", 3, {"foo": {"bar": "baz"} } ] }"#;

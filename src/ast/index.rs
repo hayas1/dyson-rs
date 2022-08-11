@@ -36,7 +36,7 @@ impl Value {
 }
 
 /// [`Ranger`] is used for accessing [`Value`] by range operator. see [`Value::get`] also.
-/// # example
+/// # examples
 /// ```
 /// use dyson::{Ranger, Value};
 /// let raw_json = r#"{"key": [1, "two", 3, "four", 5]}"#;
