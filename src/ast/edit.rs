@@ -1,6 +1,23 @@
 use super::Value;
 
 impl Value {
+    /// swap self and given value.
+    /// # examples
+    /// ```
+    /// use dyson::Value;
+    /// let raw_json = r#"{"foo": [1, "two", 3], "bar": 4}"#;
+    /// let mut json = Value::parse(raw_json).unwrap();
+    ///
+    /// let mut bar = json["bar"].swap(&mut ().into());
+    /// assert_eq!(json, Value::parse(r#"{"foo": [1, "two", 3], "bar": null}"#).unwrap());
+    ///
+    /// let mut foo = json["foo"].swap(&mut bar);
+    /// assert_eq!(json, Value::parse(r#"{"foo": 4, "bar": null}"#).unwrap());
+    ///
+    /// let null = json["bar"].swap(&mut foo);
+    /// assert_eq!(json, Value::parse(r#"{"foo": 4, "bar": [1, "two", 3]}"#).unwrap());
+    /// assert_eq!(null, Value::Null);
+    /// ```
     pub fn swap(&mut self, value: &mut Value) -> Value {
         std::mem::swap(self, value);
         value.to_owned()
@@ -22,8 +39,32 @@ impl Value {
     //     prev
     // }
 
-    pub fn update_with<F: FnOnce(&Value) -> Value>(&mut self, f: F) {
-        std::mem::swap(self, &mut f(self))
+    /// update value with previous value.
+    /// # examples
+    /// ```
+    /// use dyson::Value;
+    /// let raw_json = r#"{"foo": [1, "2", 3, "4", 5], "bar": 6}"#;
+    /// let mut json = Value::parse(raw_json).unwrap();
+    ///
+    /// json["bar"].update_with(|v| (v.integer() * v.integer()).into());
+    /// assert_eq!(json["bar"], 36.into());
+    ///
+    /// json["foo"].update_with(|v| {
+    ///     v.array().iter().map( |e| {
+    ///         Value::from(match e {
+    ///             Value::String(s) => s.parse().unwrap(),
+    ///             Value::Integer(i) => i * i,
+    ///             _ => 0,
+    ///         })
+    ///     }).collect()
+    /// });
+    /// assert_eq!(json["foo"], vec![1.into(), 2.into(), 9.into(), 4.into(), 25.into()].into());
+    /// assert_eq!(json, Value::parse(r#"{"foo": [1, 2, 9, 4, 25], "bar": 36}"#).unwrap())
+    /// ```
+    pub fn update_with<F: FnOnce(&Value) -> Value>(&mut self, f: F) -> Value {
+        let mut prev = f(self);
+        std::mem::swap(self, &mut prev);
+        prev
     }
 }
 
