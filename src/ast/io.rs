@@ -99,13 +99,18 @@ impl Value {
     }
     /// write ast to file specified by path with indent. see [`Indent`] also
     /// # examples
-    /// ```compile_fail
+    /// ```no_run
     /// use dyson::{Indent, Value};
     /// let raw_json = r#"{ "key": [ 1, "two", 3, { "foo": { "bar": "baz" } } ] }"#;
     /// let json = Value::parse(raw_json).unwrap();
     ///
     /// json.dump_with::<_, Indent<0>>("path/to/write.json");
     /// // {"key":[1,"two",3,{"foo":{"bar":"baz"}}]}
+    /// ```
+    /// ``` no_run
+    /// use dyson::{Indent, Value};
+    /// let raw_json = r#"{ "key": [ 1, "two", 3, { "foo": { "bar": "baz" } } ] }"#;
+    /// let json = Value::parse(raw_json).unwrap();
     ///
     /// json.dump_with::<_, Indent<1>>("path/to/write.json");
     /// // {
@@ -120,6 +125,11 @@ impl Value {
     /// //         }
     /// //     ]
     /// // }
+    /// ```
+    /// ```compile_fail
+    /// use dyson::{Indent, Value};
+    /// let raw_json = r#"{ "key": [ 1, "two", 3, { "foo": { "bar": "baz" } } ] }"#;
+    /// let json = Value::parse(raw_json).unwrap();
     ///
     /// // `Indent<2>` is not implement, so cause compile error
     /// json.dump_with::<_, Indent<2>>("path/to/write.json");
