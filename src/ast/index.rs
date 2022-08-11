@@ -11,6 +11,7 @@ impl Value {
     ///   - if index is range, return these elements, else return `None`
     /// - if value is object
     ///   - index is string, return the element, else return `None`
+    /// - else return `None`
     /// # examples
     /// ```
     /// use dyson::{Ranger, Value};

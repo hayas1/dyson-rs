@@ -5,48 +5,112 @@ use std::collections::HashMap;
 /// # panics
 /// call different type evaluate method cause panic.
 /// for example, if call [`Value::object`] to `Value::Array`, it will panic.
+/// if want to get `None` instead of panic, use `get_` prefixed methods.
 impl Value {
-    pub fn object(&self) -> &HashMap<String, Value> {
+    pub fn get_object(&self) -> Option<&HashMap<String, Value>> {
         match self {
-            Value::Object(m) => m,
-            _ => panic!("only Object can convert into HashMap, but {}", self.node_type()),
+            Value::Object(m) => Some(m),
+            _ => None,
+        }
+    }
+    pub fn get_mut_object(&mut self) -> Option<&mut HashMap<String, Value>> {
+        match self {
+            Value::Object(m) => Some(m),
+            _ => None,
+        }
+    }
+    pub fn object(&self) -> &HashMap<String, Value> {
+        self.get_object().unwrap_or_else(|| panic!("only Object can convert into HashMap, but {}", self.node_type()))
+    }
+
+    pub fn get_array(&self) -> Option<&Vec<Value>> {
+        match self {
+            Value::Array(v) => Some(v),
+            _ => None,
+        }
+    }
+    pub fn get_mut_array(&mut self) -> Option<&mut Vec<Value>> {
+        match self {
+            Value::Array(m) => Some(m),
+            _ => None,
         }
     }
     pub fn array(&self) -> &Vec<Value> {
+        self.get_array().unwrap_or_else(|| panic!("only Array can convert into Vec, but {}", self.node_type()))
+    }
+
+    pub fn get_bool(&self) -> Option<&bool> {
         match self {
-            Value::Array(v) => v,
-            _ => panic!("only Array can convert into Vec, but {}", self.node_type()),
+            Value::Bool(b) => Some(b),
+            _ => None,
+        }
+    }
+    pub fn get_mut_bool(&mut self) -> Option<&mut bool> {
+        match self {
+            Value::Bool(b) => Some(b),
+            _ => None,
         }
     }
     pub fn bool(&self) -> &bool {
+        self.get_bool().unwrap_or_else(|| panic!("only Bool can convert into bool, but {}", self.node_type()))
+    }
+
+    pub fn get_null(&self) -> Option<()> {
         match self {
-            Value::Bool(b) => b,
-            _ => panic!("only Bool can convert into bool, but {}", self.node_type()),
+            Value::Null => Some(()),
+            _ => None,
         }
     }
     pub fn null(&self) {
+        self.get_null().unwrap_or_else(|| panic!("only Null can convert into null, but {}", self.node_type()))
+    }
+
+    pub fn get_string(&self) -> Option<&str> {
         match self {
-            Value::Null => (),
-            _ => panic!("only Null can convert into null, but {}", self.node_type()),
+            Value::String(s) => Some(s),
+            _ => None,
+        }
+    }
+    pub fn get_mut_string(&mut self) -> Option<&mut str> {
+        match self {
+            Value::String(s) => Some(s),
+            _ => None,
         }
     }
     pub fn string(&self) -> &str {
+        self.get_string().unwrap_or_else(|| panic!("only String can convert into &str, but {}", self.node_type()))
+    }
+
+    pub fn get_integer(&self) -> Option<&i64> {
         match self {
-            Value::String(s) => s,
-            _ => panic!("only String can convert into &str, but {}", self.node_type()),
+            Value::Integer(i) => Some(i),
+            _ => None,
+        }
+    }
+    pub fn get_mut_integer(&mut self) -> Option<&mut i64> {
+        match self {
+            Value::Integer(i) => Some(i),
+            _ => None,
         }
     }
     pub fn integer(&self) -> &i64 {
+        self.get_integer().unwrap_or_else(|| panic!("only Integer can convert into i64, but {}", self.node_type()))
+    }
+
+    pub fn get_float(&self) -> Option<&f64> {
         match self {
-            Value::Integer(i) => i,
-            _ => panic!("only Integer can convert into i64, but {}", self.node_type()),
+            Value::Float(f) => Some(f),
+            _ => None,
+        }
+    }
+    pub fn get_mut_float(&mut self) -> Option<&mut f64> {
+        match self {
+            Value::Float(f) => Some(f),
+            _ => None,
         }
     }
     pub fn float(&self) -> &f64 {
-        match self {
-            Value::Float(f) => f,
-            _ => panic!("only Float can convert into f64, but {}", self.node_type()),
-        }
+        self.get_float().unwrap_or_else(|| panic!("only Float can convert into f64, but {}", self.node_type()))
     }
 }
 
