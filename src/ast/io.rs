@@ -16,7 +16,7 @@ impl Value {
     /// println!("{}", Value::parse(raw).unwrap());
     ///
     /// let raw2 = vec!["{", "\"key\": [", "1,", "\"two\",", "3,", "{\"foo\": {", "\"bar\": \"baz\"", "}", "}", "]", "}"];
-    /// println!("{}", Value::parse(raw2.into_iter().collect::<String>()).unwrap());
+    /// println!("{}", Value::parse(raw2.iter().cloned().collect::<String>()).unwrap());
     /// // or
     /// use dyson::rawjson::RawJson;
     /// println!("{}", Value::parse(raw2.into_iter().collect::<RawJson>()).unwrap());
@@ -62,7 +62,7 @@ impl Value {
 
     /// write ast to file. written string has proper indent. see [`Value::dump`] also.
     /// /// # example
-    /// ```
+    /// ```no_run
     /// use dyson::Value;
     /// let raw_json = r#"{ "key": [ 1, "two", 3, {"foo": {"bar": "baz"} } ] }"#;
     /// let json = Value::parse(raw_json).unwrap();
@@ -76,7 +76,7 @@ impl Value {
     }
     /// write ast to file specified by path. written string has proper indent. see [`Value::stringify`] also.
     /// # example
-    /// ```
+    /// ```no_run
     /// use dyson::Value;
     /// let raw_json = r#"{ "key": [ 1, "two", 3, {"foo": {"bar": "baz"} } ] }"#;
     /// let json = Value::parse(raw_json).unwrap();
