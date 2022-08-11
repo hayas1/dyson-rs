@@ -12,7 +12,7 @@ impl Value {
     /// # examples
     /// ```
     /// use dyson::Value;
-    /// let raw = r#"{ "key": [ 1, "two", 3, {"foo": {"bar": "baz"} } ] }"#;
+    /// let raw = r#"{ "key": [ 1, "two", 3, { "foo": { "bar": "baz" } } ] }"#;
     /// println!("{}", Value::parse(raw).unwrap());
     ///
     /// let raw2 = vec!["{", "\"key\": [", "1,", "\"two\",", "3,", "{\"foo\": {", "\"bar\": \"baz\"", "}", "}", "]", "}"];
@@ -64,7 +64,7 @@ impl Value {
     /// # examples
     /// ```no_run
     /// use dyson::Value;
-    /// let raw_json = r#"{ "key": [ 1, "two", 3, {"foo": {"bar": "baz"} } ] }"#;
+    /// let raw_json = r#"{ "key": [ 1, "two", 3, { "foo": { "bar": "baz" } } ] }"#;
     /// let json = Value::parse(raw_json).unwrap();
     ///
     /// use std::fs::File;
@@ -78,7 +78,7 @@ impl Value {
     /// # examples
     /// ```no_run
     /// use dyson::Value;
-    /// let raw_json = r#"{ "key": [ 1, "two", 3, {"foo": {"bar": "baz"} } ] }"#;
+    /// let raw_json = r#"{ "key": [ 1, "two", 3, { "foo": { "bar": "baz" } } ] }"#;
     /// let json = Value::parse(raw_json).unwrap();
     ///
     /// json.dump("path/to/write.json").unwrap();
@@ -99,9 +99,9 @@ impl Value {
     }
     /// write ast to file specified by path with indent. see [`Indent`] also
     /// # examples
-    /// ```
+    /// ```ignore
     /// use dyson::{Indent, Value};
-    /// let raw_json = r#"{ "key": [ 1, "two", 3, {"foo": {"bar": "baz"} } ] }"#;
+    /// let raw_json = r#"{ "key": [ 1, "two", 3, { "foo": { "bar": "baz" } } ] }"#;
     /// let json = Value::parse(raw_json).unwrap();
     ///
     /// json.dump_with::<_, Indent<0>>("path/to/write.json");
@@ -122,7 +122,7 @@ impl Value {
     /// // }
     ///
     /// // `Indent<2>` is not implement, so cause compile error
-    /// // json.dump_with::<_, Indent<2>>("path/to/write.json");
+    /// json.dump_with::<_, Indent<2>>("path/to/write.json");
     /// ```
     /// see `Value::to_string` and `Value::stringify` also.
     pub fn dump_with<P: AsRef<Path>, F: JsonFormatter>(&self, p: P) -> anyhow::Result<usize> {
