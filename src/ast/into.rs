@@ -114,6 +114,47 @@ impl Value {
     }
 }
 
+impl Value {
+    /// iterate [`Value::Object`]
+    /// # panics
+    /// if value is not `Object`.
+    /// # examples
+    /// ```
+    /// use dyson::Value;
+    /// let raw_json = r#"{"foo": [1, "2", 3, "4", 5], "bar": 6}"#;
+    /// let mut json = Value::parse(raw_json).unwrap();
+    ///
+    /// use std::collections::HashSet;
+    /// assert_eq!(
+    ///     json.items().map(|(k, _v)| &k[..]).collect::<HashSet<_>>(),
+    ///     vec!["foo", "bar"].into_iter().collect()
+    /// );
+    /// ```
+    pub fn items(&self) -> impl Iterator<Item = (&String, &Value)> {
+        match self {
+            Value::Object(m) => m.iter(),
+            _ => panic!("only Object can iterate with items, but {}", self.node_type()),
+        }
+    }
+    /// iterate [`Value::Array`]
+    /// # panics
+    /// if value is not `Array`.
+    /// # examples
+    /// ```
+    /// use dyson::Value;
+    /// let raw_json = r#"{"foo": [1, "two", 3], "bar": 6}"#;
+    /// let mut json = Value::parse(raw_json).unwrap();
+    ///
+    /// assert_eq!(json["foo"].iter().map(|(v)| v.to_string()).collect::<Vec<_>>(), vec!["1", "\"two\"", "3"]);
+    /// ```
+    pub fn iter(&self) -> impl Iterator<Item = &Value> {
+        match self {
+            Value::Array(v) => v.iter(),
+            _ => panic!("only Array can iterate, but {}", self.node_type()),
+        }
+    }
+}
+
 impl From<Value> for HashMap<String, Value> {
     fn from(val: Value) -> Self {
         match val {

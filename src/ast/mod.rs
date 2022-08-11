@@ -43,7 +43,7 @@ use std::collections::HashMap;
 /// let prev_version = json["version"].swap(&mut 0.2.into());
 /// assert_eq!(prev_version.float(), &0.1);
 /// assert_eq!(json["version"].float(), &0.2);
-/// json["keyword"].update_with(|v| v.array().iter().map(|k| Value::from(k.string().to_uppercase())).collect());
+/// json["keyword"].update_with(|v| v.iter().map(|k| Value::from(k.string().to_uppercase())).collect());
 /// assert_eq!(json["keyword"].array(), &vec!["RUST".into(), "JSON".into(), "PARSER".into()]);
 ///
 /// // write json

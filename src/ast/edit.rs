@@ -50,7 +50,7 @@ impl Value {
     /// assert_eq!(json["bar"], 36.into());
     ///
     /// json["foo"].update_with(|v| {
-    ///     v.array().iter().map( |e| {
+    ///     v.iter().map( |e| {
     ///         Value::from(match e {
     ///             Value::String(s) => s.parse().unwrap(),
     ///             Value::Integer(i) => i * i,
@@ -102,7 +102,7 @@ mod tests {
         let raw = r#"{"key": [0, 1, 2, 3], "foo": {"bar": "baz"}}"#;
         let mut json = Value::parse(raw).unwrap();
 
-        json["key"].update_with(|val| val.array().iter().map(|v| Value::from(v.integer() + 1)).collect());
+        json["key"].update_with(|val| val.iter().map(|v| Value::from(v.integer() + 1)).collect());
 
         assert_eq!(json, Value::parse(r#"{"key": [1, 2, 3, 4], "foo": {"bar": "baz"}}"#).unwrap());
     }

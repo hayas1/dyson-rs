@@ -32,7 +32,7 @@ json["language"] = "ruby".into();
 println!("{}", json["language"].string()); // ruby
 json["version"].swap(&mut 0.2.into());
 println!("{}", json["version"].float()); // 0.2
-json["keyword"].update_with(|v| v.array().iter().map(|k| Value::from(k.string().to_uppercase())).collect());
+json["keyword"].update_with(|v| v.iter().map(|k| Value::from(k.string().to_uppercase())).collect());
 println!("{:?}", json["keyword"].array()); // ["RUST", "JSON", "PARSER"]
 
 // write json
