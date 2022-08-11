@@ -9,7 +9,7 @@ use std::collections::HashMap;
 /// - parse from str, file, and path. see [`Value::parse`], [`Value::read`], and [`Value::load`].
 /// - dump to str, file, and path. see [`Value::stringify`], [`Value::write`], and [`Value::dump`].
 /// - access to parsed json element (support index access). see [`index::Ranger`], [`Value::get`], and so on.
-///   - and evaluate it expected type (unexpected type cause panic). see [`Value::evaluate_object`] and so on.
+///   - and evaluate it expected type (unexpected type cause panic). see [`Value::object`] and so on.
 /// - (yet) edit ast structure. see // TODO
 /// - (yet) iterate with dfs order. see // TODO
 ///
@@ -31,7 +31,7 @@ use std::collections::HashMap;
 ///
 /// // access json
 /// assert_eq!(json["language"], Value::String("rust".to_string()));
-/// assert_eq!(json["version"].evaluate_float(), &0.1);
+/// assert_eq!(json["version"].float(), &0.1);
 /// assert_eq!(json["keyword"][Ranger(1..)], [Value::String("json".to_string()), Value::String("parser".to_string())]);
 /// assert_eq!(json.get("get"), None);
 ///
@@ -39,7 +39,7 @@ use std::collections::HashMap;
 /// let str_json = json.stringify();
 /// assert!(str_json.contains("\"language\""));
 /// ```
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Value {
     /// correspond to object of json. object can be represented by `HashMap` in rust.
     Object(HashMap<String, Value>),

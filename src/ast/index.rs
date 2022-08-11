@@ -75,12 +75,11 @@ impl<'a> JsonIndex for &'a str {
             _ => panic!("&str index can access Object value only, but {}", value.node_type()),
         }
     }
-    fn indexed_mut(self, _value: &mut Value) -> &mut Self::Output {
-        // match value {
-        //     Value::Object(_) => self.gotten_mut(value).unwrap_or_else(|| panic!("no such key: \"{self}\"")),
-        //     _ => panic!("&str index can access Object value only, but {}", value.node_type()),
-        // }
-        unimplemented!("HashMap do not implement IndexMut")
+    fn indexed_mut(self, value: &mut Value) -> &mut Self::Output {
+        match value {
+            Value::Object(_) => self.gotten_mut(value).unwrap_or_else(|| panic!("no such key: \"{self}\"")),
+            _ => panic!("&str index can access Object value only, but {}", value.node_type()),
+        }
     }
 }
 impl JsonIndex for usize {

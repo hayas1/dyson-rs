@@ -4,45 +4,45 @@ use std::collections::HashMap;
 /// evaluate `Value` to corresponded object such as `HashMap`, `Vec`, `bool`, `str`, `i64`, or `f64`.
 /// # panics
 /// call different type evaluate method cause panic.
-/// for example, if call [`Value::evaluate_object`] to `Value::Array`, it will panic.
+/// for example, if call [`Value::object`] to `Value::Array`, it will panic.
 impl Value {
-    pub fn evaluate_object(&self) -> &HashMap<String, Value> {
+    pub fn object(&self) -> &HashMap<String, Value> {
         match self {
             Value::Object(m) => m,
             _ => panic!("only Object can convert into HashMap, but {}", self.node_type()),
         }
     }
-    pub fn evaluate_array(&self) -> &Vec<Value> {
+    pub fn array(&self) -> &Vec<Value> {
         match self {
             Value::Array(v) => v,
             _ => panic!("only Array can convert into Vec, but {}", self.node_type()),
         }
     }
-    pub fn evaluate_bool(&self) -> &bool {
+    pub fn bool(&self) -> &bool {
         match self {
             Value::Bool(b) => b,
             _ => panic!("only Bool can convert into bool, but {}", self.node_type()),
         }
     }
-    pub fn evaluate_null(&self) {
+    pub fn null(&self) {
         match self {
             Value::Null => (),
             _ => panic!("only Null can convert into null, but {}", self.node_type()),
         }
     }
-    pub fn evaluate_string(&self) -> &str {
+    pub fn string(&self) -> &str {
         match self {
             Value::String(s) => s,
             _ => panic!("only String can convert into &str, but {}", self.node_type()),
         }
     }
-    pub fn evaluate_integer(&self) -> &i64 {
+    pub fn integer(&self) -> &i64 {
         match self {
             Value::Integer(i) => i,
             _ => panic!("only Integer can convert into i64, but {}", self.node_type()),
         }
     }
-    pub fn evaluate_float(&self) -> &f64 {
+    pub fn float(&self) -> &f64 {
         match self {
             Value::Float(f) => f,
             _ => panic!("only Float can convert into f64, but {}", self.node_type()),
@@ -183,6 +183,47 @@ impl Value {
     }
     pub fn is_float(&self) -> bool {
         matches!(self, Value::Float(_))
+    }
+}
+
+impl From<HashMap<String, Value>> for Value {
+    fn from(m: HashMap<String, Value>) -> Self {
+        Value::Object(m)
+    }
+}
+impl From<Vec<Value>> for Value {
+    fn from(v: Vec<Value>) -> Self {
+        Value::Array(v)
+    }
+}
+impl From<bool> for Value {
+    fn from(b: bool) -> Self {
+        Value::Bool(b)
+    }
+}
+impl From<()> for Value {
+    fn from(_: ()) -> Self {
+        Value::Null
+    }
+}
+impl From<String> for Value {
+    fn from(s: String) -> Self {
+        Value::String(s)
+    }
+}
+impl From<&str> for Value {
+    fn from(s: &str) -> Self {
+        s.to_string().into()
+    }
+}
+impl From<i64> for Value {
+    fn from(i: i64) -> Self {
+        Value::Integer(i)
+    }
+}
+impl From<f64> for Value {
+    fn from(f: f64) -> Self {
+        Value::Float(f)
     }
 }
 

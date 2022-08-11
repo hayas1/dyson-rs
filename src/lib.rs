@@ -20,7 +20,7 @@
 //! if let Value::String(language) = &json["language"] {
 //!     println!("{}", language) // rust
 //! }
-//! println!("{}", json["version"].evaluate_float()); // 0.1
+//! println!("{}", json["version"].float()); // 0.1
 //! println!("{:?}", &json["keyword"][Ranger(1..)]); // [Value::String("json"), Value::String("parser")]
 //! println!("{:?}", json.get("foo")); // None
 //!
