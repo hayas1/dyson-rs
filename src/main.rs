@@ -9,9 +9,12 @@ struct Arg {
     action: Action,
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 enum Action {
+    /// format given json
     Format(FormatArg),
+
+    /// compare two json
     Compare(CompareArg),
     // Edit { edit: Vec<String> },
 }

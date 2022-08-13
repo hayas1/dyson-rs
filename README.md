@@ -2,9 +2,20 @@
 dynamic json parser (more, see [document](https://hayas1.github.io/dyson/dyson/)).
 
 # usage
+## lib
 TODO
 
+## cli
+### install
+```sh
+$ cargo install --git https://github.com/hayas1/dyson
+```
+### uninstall
+```sh
+$ cargo uninstall dyson
+```
 # examples
+## lib
 ```rust
 // `path/to/read.json`
 // {
@@ -47,4 +58,64 @@ json.dump("path/to/write.json").expect("failed to write json");
 //         "PARSER"
 //     ]
 // }
+```
+
+## cli
+### command
+#### help
+```sh
+$ dyson --help
+dyson
+
+USAGE:
+    dyson <SUBCOMMAND>
+
+OPTIONS:
+    -h, --help    Print help information
+
+SUBCOMMANDS:
+    compare    compare two json
+    format     format json
+    help       Print this message or the help of the given subcommand(s)
+```
+#### format
+format output will be random...
+```sh
+$ dyson format path/to/read.json
+{
+    "version": 0.1,
+    "language": "rust",
+    "notation": "json",
+    "keyword": [
+        "rust",
+        "json",
+        "parser"
+    ]
+}
+```
+
+```sh
+$ cat path/to/read.json | dyson format
+{
+    "notation": "json",
+    "version": 0.1,
+    "language": "rust",
+    "keyword": [
+        "rust",
+        "json",
+        "parser"
+    ]
+}
+```
+
+#### compare
+too simple compare...
+```sh
+$ dyson compare path/to/read.json path/to/write.json
+false
+```
+
+```sh
+$ cat path/to/read.json | dyson compare path/to/read.json
+true
 ```
