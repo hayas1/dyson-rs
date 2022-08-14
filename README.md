@@ -3,7 +3,6 @@ dynamic json parser (more, see [document](https://hayas1.github.io/dyson/dyson/)
 
 # usage
 ## lib
-# usage
 in `Cargo.toml`.
 ```toml
 [dependencies]
