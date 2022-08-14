@@ -5,7 +5,7 @@
 //!
 //! # usage
 //! in `Cargo.toml`
-//! ```
+//! ```toml
 //! [dependencies]
 //!     dyson = { git = "https://github.com/hayas1/dyson" }
 //! ```
