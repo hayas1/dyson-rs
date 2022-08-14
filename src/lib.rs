@@ -3,6 +3,13 @@
 //!
 //! see [github](https://github.com/hayas1/dyson) also.
 //!
+//! # usage
+//! in `Cargo.toml`
+//! ```
+//! [dependencies]
+//!     dyson = { git = "https://github.com/hayas1/dyson" }
+//! ```
+//!
 //! # examples
 //! ```no_run
 //! // `path/to/read.json`

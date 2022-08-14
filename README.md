@@ -3,7 +3,12 @@ dynamic json parser (more, see [document](https://hayas1.github.io/dyson/dyson/)
 
 # usage
 ## lib
-TODO
+# usage
+in `Cargo.toml`.
+```toml
+[dependencies]
+    dyson = { git = "https://github.com/hayas1/dyson" }
+```
 
 ## cli
 ### install
