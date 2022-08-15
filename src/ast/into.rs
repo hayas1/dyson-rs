@@ -4,7 +4,7 @@ use std::collections::HashMap;
 /// evaluate `Value` to corresponded object such as `HashMap`, `Vec`, `bool`, `str`, `i64`, or `f64`.
 /// # panics
 /// call different type evaluate method cause panic.
-/// for example, if call [`Value::object`] to `Value::Array`, it will panic.
+/// for example, if call [`Value::object`] to [`Value::Array`], it will panic.
 /// if want to get `None` instead of panic, use `get_` prefixed methods.
 impl Value {
     pub fn get_object(&self) -> Option<&HashMap<String, Value>> {
