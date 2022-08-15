@@ -1,4 +1,4 @@
-# dyson
+# dyson ![rust 1.61](https://github.com/hayas1/dyson/actions/workflows/rust.yml/badge.svg)
 dynamic json parser (more, see [document](https://hayas1.github.io/dyson/dyson/)).
 
 # usage
