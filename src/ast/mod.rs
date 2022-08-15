@@ -12,8 +12,8 @@ use std::collections::HashMap;
 /// - ***stringify*** dump to str, file, and path. see [`Value::stringify`], [`Value::write`], and [`Value::dump`].
 /// - ***indexing*** access to parsed json element (support index access). see [`index::Ranger`], [`Value::get`], and so on.
 ///   - and evaluate it expected type (unexpected type cause panic). see [`Value::object`] and so on.
-/// - ***recombination***(developing) edit ast structure. see [`Value::swap`], [`Value::update_with`] and so on.
-/// - ***visitor***(yet) iterate with dfs order. see [`Value::walk`], [`Value::visitor`].
+/// - ***recombination*** edit ast structure. see [`Value::swap`], [`Value::update_with`] and so on.
+/// - ***visitor*** iterate with dfs order. see [`Value::walk`], [`Value::visitor`].
 ///
 /// # examples
 /// this example is read from and write to `String`.
