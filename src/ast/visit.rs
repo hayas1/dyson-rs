@@ -11,7 +11,7 @@ enum ValueIterator<'a> {
     ArrayIterator(slice::Iter<'a, Value>),
 }
 #[derive(Debug, PartialEq)]
-pub enum DfSEvent<'a> {
+pub enum DfsEvent<'a> {
     Visit(&'a Value),
     Leave(&'a Value),
     ForwardEdge(&'a Value, &'a Value),
@@ -19,29 +19,54 @@ pub enum DfSEvent<'a> {
 }
 
 impl Value {
-    pub fn walk<'a, F: FnMut(DfSEvent<'a>) -> bool>(&'a self, mut f: F) -> bool {
+    /// walk json [`Value`] with bfs order. if `f` return true continue walk, return false interrupt walk.
+    /// if complete walk, this method return true, and not complete walk, this method return false.
+    /// # examples
+    /// ```
+    /// use dyson::{Value, DfsEvent};
+    /// let raw_json = r#"{ "key": [ 1, "two", 3, { "foo": { "bar": "baz" } } ] }"#;
+    /// let json = Value::parse(raw_json).unwrap();
+    ///
+    /// let (mut depth, mut max_depth) = (0, 0);
+    /// json.walk(|event| match event {
+    ///     DfsEvent::Visit(_v) => true,
+    ///     DfsEvent::Leave(_v) => true,
+    ///     DfsEvent::ForwardEdge(_parent, _child) => {
+    ///         depth = depth + 1;
+    ///         max_depth = max_depth.max(depth);
+    ///         true
+    ///     }
+    ///     DfsEvent::BackEdge(_child, _parent) => {
+    ///         depth = depth - 1;
+    ///         max_depth = max_depth.max(depth);
+    ///         true
+    ///     }
+    /// });
+    /// assert_eq!(max_depth, 4);
+    /// ```
+    pub fn walk<'a, F: FnMut(DfsEvent<'a>) -> bool>(&'a self, mut f: F) -> bool {
         // FIXME for return false, use proc_macro?
         let (mut stack, mut iter_stack) = (Vec::new(), Vec::new());
         match self {
             Value::Object(m) => {
-                if !f(DfSEvent::Visit(self)) {
+                if !f(DfsEvent::Visit(self)) {
                     return false;
                 }
                 stack.push(self);
                 iter_stack.push(ValueIterator::ObjectIterator(m.iter()));
             }
             Value::Array(v) => {
-                if !f(DfSEvent::Visit(self)) {
+                if !f(DfsEvent::Visit(self)) {
                     return false;
                 }
                 stack.push(self);
                 iter_stack.push(ValueIterator::ArrayIterator(v.iter()));
             }
             v => {
-                if !f(DfSEvent::Visit(v)) {
+                if !f(DfsEvent::Visit(v)) {
                     return false;
                 }
-                if !f(DfSEvent::Leave(v)) {
+                if !f(DfsEvent::Leave(v)) {
                     return false;
                 }
             }
@@ -54,48 +79,48 @@ impl Value {
             match next {
                 Some(Value::Object(m)) => {
                     let next_value = next.unwrap();
-                    if !f(DfSEvent::ForwardEdge(lis, next_value)) {
+                    if !f(DfsEvent::ForwardEdge(lis, next_value)) {
                         return false;
                     }
                     stack.push(next_value);
                     iter_stack.push(ValueIterator::ObjectIterator(m.iter()));
-                    if !f(DfSEvent::Visit(next_value)) {
+                    if !f(DfsEvent::Visit(next_value)) {
                         return false;
                     }
                 }
                 Some(Value::Array(v)) => {
                     let next_value = next.unwrap();
-                    if !f(DfSEvent::ForwardEdge(lis, next_value)) {
+                    if !f(DfsEvent::ForwardEdge(lis, next_value)) {
                         return false;
                     }
                     stack.push(next_value);
                     iter_stack.push(ValueIterator::ArrayIterator(v.iter()));
-                    if !f(DfSEvent::Visit(next_value)) {
+                    if !f(DfsEvent::Visit(next_value)) {
                         return false;
                     }
                 }
                 Some(v) => {
-                    if !f(DfSEvent::ForwardEdge(last, v)) {
+                    if !f(DfsEvent::ForwardEdge(last, v)) {
                         return false;
                     }
-                    if !f(DfSEvent::Visit(v)) {
+                    if !f(DfsEvent::Visit(v)) {
                         return false;
                     }
-                    if !f(DfSEvent::Leave(v)) {
+                    if !f(DfsEvent::Leave(v)) {
                         return false;
                     }
-                    if !f(DfSEvent::BackEdge(v, last)) {
+                    if !f(DfsEvent::BackEdge(v, last)) {
                         return false;
                     }
                 }
                 None => {
                     iter_stack.pop();
                     if let Some(v) = stack.pop() {
-                        if !f(DfSEvent::Leave(v)) {
+                        if !f(DfsEvent::Leave(v)) {
                             return false;
                         }
                         let parent = stack.last().copied();
-                        if parent.is_some() && !f(DfSEvent::BackEdge(v, parent.unwrap())) {
+                        if parent.is_some() && !f(DfsEvent::BackEdge(v, parent.unwrap())) {
                             return false;
                         }
                     }
@@ -165,17 +190,17 @@ mod tests {
         let raw_json = "\"rust\"";
         let json = Value::parse(raw_json).unwrap();
         assert!(json.walk(|event| match event {
-            DfSEvent::Visit(v) => assert_eq!(v, &Value::String("rust".into())) == (),
-            DfSEvent::Leave(v) => assert_eq!(v, &Value::String("rust".into())) == (),
-            DfSEvent::ForwardEdge(_, _) => unreachable!("one element json has no edge"),
-            DfSEvent::BackEdge(_, _) => unreachable!("one element json has no edge"),
+            DfsEvent::Visit(v) => assert_eq!(v, &Value::String("rust".into())) == (),
+            DfsEvent::Leave(v) => assert_eq!(v, &Value::String("rust".into())) == (),
+            DfsEvent::ForwardEdge(_, _) => unreachable!("one element json has no edge"),
+            DfsEvent::BackEdge(_, _) => unreachable!("one element json has no edge"),
         }));
 
         assert!(!json.walk(|event| match event {
-            DfSEvent::Visit(_) => false,
-            DfSEvent::Leave(_) => unreachable!("when visit first node, return false"),
-            DfSEvent::ForwardEdge(_, _) => unreachable!("one element json has no edge"),
-            DfSEvent::BackEdge(_, _) => unreachable!("one element json has no edge"),
+            DfsEvent::Visit(_) => false,
+            DfsEvent::Leave(_) => unreachable!("when visit first node, return false"),
+            DfsEvent::ForwardEdge(_, _) => unreachable!("one element json has no edge"),
+            DfsEvent::BackEdge(_, _) => unreachable!("one element json has no edge"),
         }));
     }
 
@@ -187,35 +212,35 @@ mod tests {
         let mut events = Vec::new();
         assert!(json.walk(|event| events.push(event) == ()));
         let mut iter = events.iter();
-        assert_eq!(iter.next(), Some(&DfSEvent::Visit(&json)));
-        assert_eq!(iter.next(), Some(&DfSEvent::ForwardEdge(&json, &json["key"])));
-        assert_eq!(iter.next(), Some(&DfSEvent::Visit(&json["key"])));
+        assert_eq!(iter.next(), Some(&DfsEvent::Visit(&json)));
+        assert_eq!(iter.next(), Some(&DfsEvent::ForwardEdge(&json, &json["key"])));
+        assert_eq!(iter.next(), Some(&DfsEvent::Visit(&json["key"])));
         {
-            assert_eq!(iter.next(), Some(&DfSEvent::ForwardEdge(&json["key"], &json["key"][0])));
-            assert_eq!(iter.next(), Some(&DfSEvent::Visit(&json["key"][0])));
-            assert_eq!(iter.next(), Some(&DfSEvent::Leave(&json["key"][0])));
-            assert_eq!(iter.next(), Some(&DfSEvent::BackEdge(&json["key"][0], &json["key"])));
+            assert_eq!(iter.next(), Some(&DfsEvent::ForwardEdge(&json["key"], &json["key"][0])));
+            assert_eq!(iter.next(), Some(&DfsEvent::Visit(&json["key"][0])));
+            assert_eq!(iter.next(), Some(&DfsEvent::Leave(&json["key"][0])));
+            assert_eq!(iter.next(), Some(&DfsEvent::BackEdge(&json["key"][0], &json["key"])));
 
-            assert_eq!(iter.next(), Some(&DfSEvent::ForwardEdge(&json["key"], &json["key"][1])));
-            assert_eq!(iter.next(), Some(&DfSEvent::Visit(&json["key"][1])));
-            assert_eq!(iter.next(), Some(&DfSEvent::Leave(&json["key"][1])));
-            assert_eq!(iter.next(), Some(&DfSEvent::BackEdge(&json["key"][1], &json["key"])));
+            assert_eq!(iter.next(), Some(&DfsEvent::ForwardEdge(&json["key"], &json["key"][1])));
+            assert_eq!(iter.next(), Some(&DfsEvent::Visit(&json["key"][1])));
+            assert_eq!(iter.next(), Some(&DfsEvent::Leave(&json["key"][1])));
+            assert_eq!(iter.next(), Some(&DfsEvent::BackEdge(&json["key"][1], &json["key"])));
 
-            assert_eq!(iter.next(), Some(&DfSEvent::ForwardEdge(&json["key"], &json["key"][2])));
-            assert_eq!(iter.next(), Some(&DfSEvent::Visit(&json["key"][2])));
+            assert_eq!(iter.next(), Some(&DfsEvent::ForwardEdge(&json["key"], &json["key"][2])));
+            assert_eq!(iter.next(), Some(&DfsEvent::Visit(&json["key"][2])));
             {
-                assert_eq!(iter.next(), Some(&DfSEvent::ForwardEdge(&json["key"][2], &json["key"][2]["foo"])));
-                assert_eq!(iter.next(), Some(&DfSEvent::Visit(&json["key"][2]["foo"])));
-                assert_eq!(iter.next(), Some(&DfSEvent::Leave(&json["key"][2]["foo"])));
-                assert_eq!(iter.next(), Some(&DfSEvent::BackEdge(&json["key"][2]["foo"], &json["key"][2])));
+                assert_eq!(iter.next(), Some(&DfsEvent::ForwardEdge(&json["key"][2], &json["key"][2]["foo"])));
+                assert_eq!(iter.next(), Some(&DfsEvent::Visit(&json["key"][2]["foo"])));
+                assert_eq!(iter.next(), Some(&DfsEvent::Leave(&json["key"][2]["foo"])));
+                assert_eq!(iter.next(), Some(&DfsEvent::BackEdge(&json["key"][2]["foo"], &json["key"][2])));
             }
-            assert_eq!(iter.next(), Some(&DfSEvent::Leave(&json["key"][2])));
-            assert_eq!(iter.next(), Some(&DfSEvent::BackEdge(&json["key"][2], &json["key"])));
+            assert_eq!(iter.next(), Some(&DfsEvent::Leave(&json["key"][2])));
+            assert_eq!(iter.next(), Some(&DfsEvent::BackEdge(&json["key"][2], &json["key"])));
         }
-        assert_eq!(iter.next(), Some(&DfSEvent::Leave(&json["key"])));
-        assert_eq!(iter.next(), Some(&DfSEvent::BackEdge(&json["key"], &json)));
+        assert_eq!(iter.next(), Some(&DfsEvent::Leave(&json["key"])));
+        assert_eq!(iter.next(), Some(&DfsEvent::BackEdge(&json["key"], &json)));
 
-        assert_eq!(iter.next(), Some(&DfSEvent::Leave(&json)));
+        assert_eq!(iter.next(), Some(&DfsEvent::Leave(&json)));
         assert_eq!(iter.next(), None);
     }
 
