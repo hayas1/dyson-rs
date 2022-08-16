@@ -45,89 +45,63 @@ impl Value {
     /// assert_eq!(max_depth, 4);
     /// ```
     pub fn walk<'a, F: FnMut(DfsEvent<'a>) -> bool>(&'a self, mut f: F) -> bool {
-        // FIXME for return false, use proc_macro?
-        let (mut stack, mut iter_stack) = (Vec::new(), Vec::new());
-        match self {
-            Value::Object(m) => {
-                if !f(DfsEvent::Visit(self)) {
-                    return false;
-                }
-                stack.push(self);
-                iter_stack.push(ValueIterator::ObjectIterator(m.iter()));
-            }
-            Value::Array(v) => {
-                if !f(DfsEvent::Visit(self)) {
-                    return false;
-                }
-                stack.push(self);
-                iter_stack.push(ValueIterator::ArrayIterator(v.iter()));
-            }
-            v => {
-                if !f(DfsEvent::Visit(v)) {
-                    return false;
-                }
-                if !f(DfsEvent::Leave(v)) {
-                    return false;
-                }
-            }
-        }
-        while let (Some(last), Some(last_iter)) = (stack.last(), iter_stack.last_mut()) {
-            let (lis, next) = match (last, last_iter) {
-                (lis, ValueIterator::ObjectIterator(oi)) => (lis, oi.next().map(|(_k, v)| v)),
-                (lis, ValueIterator::ArrayIterator(ai)) => (lis, ai.next()),
-            };
-            match next {
-                Some(Value::Object(m)) => {
-                    let next_value = next.unwrap();
-                    if !f(DfsEvent::ForwardEdge(lis, next_value)) {
-                        return false;
-                    }
-                    stack.push(next_value);
+        let mut fun = || -> Option<()> {
+            let (mut stack, mut iter_stack) = (Vec::new(), Vec::new());
+            match self {
+                Value::Object(m) => {
+                    f(DfsEvent::Visit(self)).then(|| ())?;
+                    stack.push(self);
                     iter_stack.push(ValueIterator::ObjectIterator(m.iter()));
-                    if !f(DfsEvent::Visit(next_value)) {
-                        return false;
-                    }
                 }
-                Some(Value::Array(v)) => {
-                    let next_value = next.unwrap();
-                    if !f(DfsEvent::ForwardEdge(lis, next_value)) {
-                        return false;
-                    }
-                    stack.push(next_value);
+                Value::Array(v) => {
+                    f(DfsEvent::Visit(self)).then(|| ())?;
+                    stack.push(self);
                     iter_stack.push(ValueIterator::ArrayIterator(v.iter()));
-                    if !f(DfsEvent::Visit(next_value)) {
-                        return false;
-                    }
                 }
-                Some(v) => {
-                    if !f(DfsEvent::ForwardEdge(last, v)) {
-                        return false;
-                    }
-                    if !f(DfsEvent::Visit(v)) {
-                        return false;
-                    }
-                    if !f(DfsEvent::Leave(v)) {
-                        return false;
-                    }
-                    if !f(DfsEvent::BackEdge(v, last)) {
-                        return false;
-                    }
+                v => {
+                    f(DfsEvent::Visit(v)).then(|| ())?;
+                    f(DfsEvent::Leave(v)).then(|| ())?;
                 }
-                None => {
-                    iter_stack.pop();
-                    if let Some(v) = stack.pop() {
-                        if !f(DfsEvent::Leave(v)) {
-                            return false;
-                        }
-                        let parent = stack.last().copied();
-                        if parent.is_some() && !f(DfsEvent::BackEdge(v, parent.unwrap())) {
-                            return false;
+            }
+            while let (Some(last), Some(last_iter)) = (stack.last(), iter_stack.last_mut()) {
+                let next = match last_iter {
+                    ValueIterator::ObjectIterator(oi) => oi.next().map(|(_k, v)| v),
+                    ValueIterator::ArrayIterator(ai) => ai.next(),
+                };
+                match next {
+                    Some(Value::Object(m)) => {
+                        let next_value = next.unwrap();
+                        f(DfsEvent::ForwardEdge(last, next_value)).then(|| ())?;
+                        stack.push(next_value);
+                        iter_stack.push(ValueIterator::ObjectIterator(m.iter()));
+                        f(DfsEvent::Visit(next_value)).then(|| ())?;
+                    }
+                    Some(Value::Array(v)) => {
+                        let next_value = next.unwrap();
+                        f(DfsEvent::ForwardEdge(last, next_value)).then(|| ())?;
+                        stack.push(next_value);
+                        iter_stack.push(ValueIterator::ArrayIterator(v.iter()));
+                        f(DfsEvent::Visit(next_value)).then(|| ())?;
+                    }
+                    Some(v) => {
+                        f(DfsEvent::ForwardEdge(last, v)).then(|| ())?;
+                        f(DfsEvent::Visit(v)).then(|| ())?;
+                        f(DfsEvent::Leave(v)).then(|| ())?;
+                        f(DfsEvent::BackEdge(v, last)).then(|| ())?;
+                    }
+                    None => {
+                        iter_stack.pop();
+                        if let Some(v) = stack.pop() {
+                            f(DfsEvent::Leave(v)).then(|| ())?;
+                            let parent = stack.last().copied();
+                            parent.and_then(|p| f(DfsEvent::BackEdge(v, p)).then(|| ()))?;
                         }
                     }
                 }
             }
-        }
-        true
+            Some(())
+        };
+        fun().is_some()
     }
 
     /// get json visitor it will visit [`Value`] with bfs order.
@@ -210,7 +184,7 @@ mod tests {
         let raw_json = r#"{ "key": [ 1, "two", { "foo": "bar" } ] }"#;
         let json = Value::parse(raw_json).unwrap();
         let mut events = Vec::new();
-        assert!(json.walk(|event| events.push(event) == ()));
+        println!("{}", json.walk(|event| events.push(event) == ()));
         let mut iter = events.iter();
         assert_eq!(iter.next(), Some(&DfsEvent::Visit(&json)));
         assert_eq!(iter.next(), Some(&DfsEvent::ForwardEdge(&json, &json["key"])));
