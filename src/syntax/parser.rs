@@ -1,4 +1,4 @@
-use super::{Lexer, MainToken, NumberToken, StringToken, Token};
+use super::{token::ImmediateToken, Lexer, MainToken, NumberToken, SingleToken, StringToken};
 use crate::{ast::Value, postr, rawjson::RawJson};
 use anyhow::{anyhow, bail, ensure, Context as _};
 use std::collections::HashMap;
@@ -88,13 +88,13 @@ impl<'a> Parser<'a> {
     /// `bool` := "true" | "false"
     pub fn parse_bool(&mut self) -> anyhow::Result<Value> {
         let &(pos, tf) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, start parse bool"))?;
-        match MainToken::tokenize(tf) {
-            MainToken::Undecided('t') => {
+        match ImmediateToken::tokenize(tf) {
+            ImmediateToken::Undecided('t') => {
                 let tru = self.lexer.lex_n_chars(4)?;
                 ensure!("true" == tru, "{}: unexpected \"{tru}\", but expected \"true\"", postr(pos));
                 Ok(Value::Bool(true))
             }
-            MainToken::Undecided('f') => {
+            ImmediateToken::Undecided('f') => {
                 let fal = self.lexer.lex_n_chars(5)?;
                 ensure!("false" == fal, "{}: unexpected \"{fal}\", but expected \"false\"", postr(pos));
                 Ok(Value::Bool(false))
@@ -107,8 +107,8 @@ impl<'a> Parser<'a> {
     /// `null` := "null"
     pub fn parse_null(&mut self) -> anyhow::Result<Value> {
         let &(pos, n) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, start parse null"))?;
-        match MainToken::tokenize(n) {
-            MainToken::Undecided('n') => {
+        match ImmediateToken::tokenize(n) {
+            ImmediateToken::Undecided('n') => {
                 let null = self.lexer.lex_n_chars(4)?;
                 ensure!("null" == null, "{}: unexpected \"{null}\", but expected \"null\"", postr(pos));
                 Ok(Value::Null)

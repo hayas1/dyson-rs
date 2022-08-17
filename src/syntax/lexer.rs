@@ -1,4 +1,4 @@
-use super::token::{MainToken, Token};
+use super::token::{MainToken, SingleToken};
 use crate::{postr, rawjson::RawJson};
 use anyhow::{anyhow, bail, ensure};
 
@@ -52,7 +52,7 @@ impl<'a> Lexer<'a> {
 
     /// read next expected token. if `skip_ws`, this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
     /// if success, lexer cursor move to next, but if error, lexer cursor do not move next (skip whitespace only).
-    pub fn lex_1_char<T: Token>(&mut self, token: T, skip_ws: bool) -> anyhow::Result<Nexted> {
+    pub fn lex_1_char<T: SingleToken>(&mut self, token: T, skip_ws: bool) -> anyhow::Result<Nexted> {
         if let Some(&(pos, c)) = if skip_ws { self.skip_whitespace() } else { self.peek() } {
             ensure!(T::tokenize(c) == token, "{}: unexpected '{c}', but expected '{token}'", postr(pos));
             self.next().ok_or_else(|| unreachable!("previous peek ensure this next success"))
@@ -80,7 +80,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// peek next token is equal to expected token. if `skip_ws`, this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
-    pub fn is_next<T: Token>(&mut self, token: T, skip_ws: bool) -> bool {
+    pub fn is_next<T: SingleToken>(&mut self, token: T, skip_ws: bool) -> bool {
         if skip_ws { self.skip_whitespace() } else { self.peek() }
             .map(|&(_p, c)| T::tokenize(c) == token)
             .unwrap_or(false)

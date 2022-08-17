@@ -1,10 +1,16 @@
 use std::fmt::{Debug, Display};
 
-pub trait Token: PartialEq + Eq + Display + Debug {
+pub trait SingleToken: PartialEq + Eq + Display + Debug + Clone {
     fn tokenize(c: char) -> Self;
 }
+pub trait Token: SingleToken {
+    fn confirm(s: &str) -> Self;
+    fn tokenize(c: char) -> Self {
+        SingleToken::tokenize(c)
+    }
+}
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum MainToken {
     LeftBrace,
     RightBrace,
@@ -39,7 +45,7 @@ impl std::fmt::Display for MainToken {
         }
     }
 }
-impl Token for MainToken {
+impl SingleToken for MainToken {
     fn tokenize(c: char) -> Self {
         match c {
             '{' => Self::LeftBrace,
@@ -59,7 +65,45 @@ impl Token for MainToken {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub enum ImmediateToken {
+    True,
+    False,
+    Null,
+    Undecided(char),
+    Unexpected(String),
+}
+impl std::fmt::Display for ImmediateToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::True => write!(f, "True(true)"),
+            Self::False => write!(f, "False(false)"),
+            Self::Null => write!(f, "Null(null)"),
+            Self::Undecided(c) => write!(f, "Undecided({})", c),
+            Self::Unexpected(s) => write!(f, "Unexpected({})", s),
+        }
+    }
+}
+impl SingleToken for ImmediateToken {
+    fn tokenize(c: char) -> Self {
+        match c {
+            't' | 'f' | 'n' => Self::Undecided(c),
+            c => Self::Unexpected(c.to_string()),
+        }
+    }
+}
+impl Token for ImmediateToken {
+    fn confirm(s: &str) -> Self {
+        match s {
+            "true" => Self::True,
+            "false" => Self::False,
+            "null" => Self::Null,
+            s => Self::Unexpected(s.to_string()),
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum StringToken {
     Quotation,
     ReverseSolidus,
@@ -88,7 +132,7 @@ impl std::fmt::Display for StringToken {
         }
     }
 }
-impl Token for StringToken {
+impl SingleToken for StringToken {
     fn tokenize(c: char) -> Self {
         match c {
             '"' => Self::Quotation,
@@ -105,7 +149,7 @@ impl Token for StringToken {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum NumberToken {
     Zero,
     OneNine,
@@ -128,7 +172,7 @@ impl std::fmt::Display for NumberToken {
         }
     }
 }
-impl Token for NumberToken {
+impl SingleToken for NumberToken {
     fn tokenize(c: char) -> Self {
         match c {
             '0' => Self::Zero,

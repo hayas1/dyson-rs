@@ -4,4 +4,4 @@ mod token;
 
 pub use lexer::Lexer;
 pub use parser::Parser;
-pub use token::{MainToken, NumberToken, StringToken, Token};
+pub use token::{MainToken, NumberToken, SingleToken, StringToken};
