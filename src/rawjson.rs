@@ -11,6 +11,16 @@ impl RawJson {
         self.json.len()
     }
 
+    /// return eof position. this method's complexity is **O(1)**.
+    pub fn eof(&self) -> (usize, usize) {
+        let r = self.rows();
+        if r > 0 {
+            (r - 1, self.json[r - 1].len())
+        } else {
+            (0, 0)
+        }
+    }
+
     /// check is it empty. this method's complexity is **O(1)**.
     pub fn is_empty(&self) -> bool {
         self.rows() == 0
@@ -52,7 +62,11 @@ impl From<String> for RawJson {
 }
 impl From<&str> for RawJson {
     fn from(s: &str) -> Self {
-        s.replace("\r\n", "\n").split('\n').filter(|l| !l.is_empty()).collect()
+        if s.is_empty() {
+            Vec::<&str>::new().into_iter().collect()
+        } else {
+            s.replace("\r\n", "\n").split('\n').collect()
+        }
     }
 }
 
