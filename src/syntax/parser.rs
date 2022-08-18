@@ -90,13 +90,11 @@ impl<'a> Parser<'a> {
         let &(pos, tf) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, start parse bool"))?;
         match ImmediateToken::tokenize(tf) {
             ImmediateToken::Undecided('t') => {
-                let tru = self.lexer.lex_n_chars(4)?;
-                ensure!("true" == tru, "{}: unexpected \"{tru}\", but expected \"true\"", postr(pos));
+                self.lexer.lex_expected(ImmediateToken::True)?;
                 Ok(Value::Bool(true))
             }
             ImmediateToken::Undecided('f') => {
-                let fal = self.lexer.lex_n_chars(5)?;
-                ensure!("false" == fal, "{}: unexpected \"{fal}\", but expected \"false\"", postr(pos));
+                self.lexer.lex_expected(ImmediateToken::False)?;
                 Ok(Value::Bool(false))
             }
             _ => bail!("{}: no bool immediate start with '{tf}'", postr(pos)),
@@ -109,8 +107,7 @@ impl<'a> Parser<'a> {
         let &(pos, n) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, start parse null"))?;
         match ImmediateToken::tokenize(n) {
             ImmediateToken::Undecided('n') => {
-                let null = self.lexer.lex_n_chars(4)?;
-                ensure!("null" == null, "{}: unexpected \"{null}\", but expected \"null\"", postr(pos));
+                self.lexer.lex_expected(ImmediateToken::Null)?;
                 Ok(Value::Null)
             }
             _ => bail!("{}: no null immediate start with '{}'", postr(pos), n),
@@ -153,7 +150,7 @@ impl<'a> Parser<'a> {
             StringToken::CarriageReturn => Ok('\r'),
             StringToken::HorizontalTab => Ok('\t'),
             StringToken::Unicode => {
-                let hex4digits = self.lexer.lex_n_chars(4)?;
+                let (hex4digits, _) = self.lexer.lex_n_chars(4)?;
                 char::from_u32(u32::from_str_radix(&hex4digits, 16)?)
                     .ok_or_else(|| anyhow!("{}: cannot \\{hex4digits} convert to unicode", postr(p)))
             }

@@ -1,4 +1,4 @@
-use super::token::{MainToken, SingleToken};
+use super::token::{MainToken, SequentialToken, SingleToken};
 use crate::{postr, rawjson::RawJson};
 use anyhow::{anyhow, bail, ensure};
 
@@ -63,9 +63,9 @@ impl<'a> Lexer<'a> {
 
     /// read next `n` chars ***without*** skipping whitespace until line separator. this method's complexity is **O(n)**.
     /// if success, lexer cursor move `n` step, but if error, lexer cursor will stop error ocurred position.
-    pub fn lex_n_chars(&mut self, n: usize) -> anyhow::Result<String> {
+    pub fn lex_n_chars(&mut self, n: usize) -> anyhow::Result<(String, Option<Nexted>)> {
         if n == 0 {
-            return Ok(String::new());
+            return Ok((String::new(), self.peek().cloned()));
         }
         let &((sr, sl), _c) = self.peek().ok_or_else(|| anyhow!("unexpected EOF, lex {n} chars"))?;
         let mut result = String::new();
@@ -76,7 +76,24 @@ impl<'a> Lexer<'a> {
                 .then(|| result.push(c))
                 .ok_or_else(|| anyhow!("{}: unexpected line separator, unknown \"{result}\"", postr((sr, sl))))?;
         }
-        Ok(result)
+        Ok((result, self.peek().cloned()))
+    }
+
+    /// read next sequential token with skipping whitespace until line separator.
+    /// this method's complexity is **O(len(token))** (see [lex_n_chars](Lexer)).
+    pub fn lex_expected<T: SequentialToken>(&mut self, token: T) -> anyhow::Result<Option<Nexted>> {
+        if let Some((_pos, _)) = self.skip_whitespace() {
+            let (ts, nexted) = self.lex_n_chars(token.to_string().len())?;
+            if let Some((p, c)) = nexted {
+                ensure!(T::confirm(&ts) == token, "{}: unexpected '{ts}', but expected '{token}'", postr(p));
+                Ok(Some((p, c)))
+            } else {
+                ensure!(T::confirm(&ts) == token, "unexpected '{ts}', but expected '{token}'");
+                Ok(None)
+            }
+        } else {
+            bail!("unexpected EOF, expected some token")
+        }
     }
 
     /// peek next token is equal to expected token. if `skip_ws`, this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
@@ -164,8 +181,9 @@ mod tests {
         let json = "[true,  fal\nse]".into();
         let mut lexer = Lexer::new(&json);
         assert_eq!(lexer.next(), Some(((0, 0), '[')));
-        let lex_4_chars = lexer.lex_n_chars(4).unwrap();
+        let (lex_4_chars, nexted) = lexer.lex_n_chars(4).unwrap();
         assert_eq!(lex_4_chars, "true");
+        assert_eq!(nexted, Some(((0, 5), ',')));
         assert_eq!(lexer.next(), Some(((0, 5), ',')));
         assert_eq!(lexer.skip_whitespace(), Some(&((0, 8), 'f')));
         let lex_5_chars = lexer.lex_n_chars(5).unwrap_err();
