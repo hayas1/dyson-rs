@@ -3,14 +3,14 @@ use std::fmt::{Debug, Display};
 pub trait SingleToken: PartialEq + Eq + Display + Debug + Clone {
     fn tokenize(c: char) -> Self;
 }
-pub trait Token: SingleToken {
+pub trait SequentialToken: SingleToken {
     fn confirm(s: &str) -> Self;
     fn tokenize(c: char) -> Self {
         SingleToken::tokenize(c)
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 pub enum MainToken {
     LeftBrace,
     RightBrace,
@@ -19,7 +19,7 @@ pub enum MainToken {
     Colon,
     Comma,
     Quotation,
-    Digit,
+    Digit(char),
     Plus,
     Minus,
     Dot,
@@ -29,19 +29,38 @@ pub enum MainToken {
 impl std::fmt::Display for MainToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::LeftBrace => write!(f, "LeftBrace({{)"),
-            Self::RightBrace => write!(f, "RightBrace(}})"),
-            Self::LeftBracket => write!(f, "LeftBracket([)"),
-            Self::RightBracket => write!(f, "RightBracket(])"),
-            Self::Colon => write!(f, "Colon(:)"),
-            Self::Comma => write!(f, "Comma(,)"),
-            Self::Quotation => write!(f, "Quotation(\")"),
-            Self::Digit => write!(f, "Digit(0-9)"),
-            Self::Plus => write!(f, "Plus(+)"),
-            Self::Minus => write!(f, "Minus(-)"),
-            Self::Dot => write!(f, "Dot(.)"),
-            Self::Whitespace => write!(f, "Whitespace( )"),
-            Self::Undecided(c) => write!(f, "Undecided({c})"),
+            MainToken::LeftBrace => write!(f, "{{"),
+            MainToken::RightBrace => write!(f, "}}"),
+            MainToken::LeftBracket => write!(f, "["),
+            MainToken::RightBracket => write!(f, "]"),
+            MainToken::Colon => write!(f, ":"),
+            MainToken::Comma => write!(f, ","),
+            MainToken::Quotation => write!(f, "\""),
+            MainToken::Digit(c) => write!(f, "{}", c),
+            MainToken::Plus => write!(f, "+"),
+            MainToken::Minus => write!(f, "-"),
+            MainToken::Dot => write!(f, "."),
+            MainToken::Whitespace => write!(f, " "),
+            MainToken::Undecided(c) => write!(f, "{}", c),
+        }
+    }
+}
+impl std::fmt::Debug for MainToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::LeftBrace => write!(f, "LeftBrace({})", self),
+            Self::RightBrace => write!(f, "RightBrace({})", self),
+            Self::LeftBracket => write!(f, "LeftBracket({})", self),
+            Self::RightBracket => write!(f, "RightBracket({})", self),
+            Self::Colon => write!(f, "Colon({})", self),
+            Self::Comma => write!(f, "Comma({})", self),
+            Self::Quotation => write!(f, "Quotation({})", self),
+            Self::Digit(_) => write!(f, "Digit({})", self),
+            Self::Plus => write!(f, "Plus({})", self),
+            Self::Minus => write!(f, "Minus({})", self),
+            Self::Dot => write!(f, "Dot({})", self),
+            Self::Whitespace => write!(f, "Whitespace({})", self),
+            Self::Undecided(_) => write!(f, "Undecided({})", self),
         }
     }
 }
@@ -55,7 +74,7 @@ impl SingleToken for MainToken {
             ':' => Self::Colon,
             ',' => Self::Comma,
             '"' => Self::Quotation,
-            '0'..='9' => Self::Digit,
+            '0'..='9' => Self::Digit(c),
             '+' => Self::Plus,
             '-' => Self::Minus,
             '.' => Self::Dot,
@@ -65,7 +84,7 @@ impl SingleToken for MainToken {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 pub enum ImmediateToken {
     True,
     False,
@@ -76,11 +95,22 @@ pub enum ImmediateToken {
 impl std::fmt::Display for ImmediateToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::True => write!(f, "True(true)"),
-            Self::False => write!(f, "False(false)"),
-            Self::Null => write!(f, "Null(null)"),
-            Self::Undecided(c) => write!(f, "Undecided({})", c),
-            Self::Unexpected(s) => write!(f, "Unexpected({})", s),
+            ImmediateToken::True => write!(f, "true"),
+            ImmediateToken::False => write!(f, "false"),
+            ImmediateToken::Null => write!(f, "null"),
+            ImmediateToken::Undecided(c) => write!(f, "{}", c),
+            ImmediateToken::Unexpected(s) => write!(f, "{}", s),
+        }
+    }
+}
+impl std::fmt::Debug for ImmediateToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::True => write!(f, "True({})", self),
+            Self::False => write!(f, "False({})", self),
+            Self::Null => write!(f, "Null({})", self),
+            Self::Undecided(_) => write!(f, "Undecided({})", self),
+            Self::Unexpected(_) => write!(f, "Unexpected({})", self),
         }
     }
 }
@@ -92,7 +122,7 @@ impl SingleToken for ImmediateToken {
         }
     }
 }
-impl Token for ImmediateToken {
+impl SequentialToken for ImmediateToken {
     fn confirm(s: &str) -> Self {
         match s {
             "true" => Self::True,
@@ -103,7 +133,7 @@ impl Token for ImmediateToken {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 pub enum StringToken {
     Quotation,
     ReverseSolidus,
@@ -114,21 +144,43 @@ pub enum StringToken {
     CarriageReturn,
     HorizontalTab,
     Unicode,
-    Unexpected(char),
+    Hex4Digits(String),
+    Undecided(char),
+    Unexpected(String),
 }
 impl std::fmt::Display for StringToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Quotation => write!(f, "Quotation(\")"),
-            Self::ReverseSolidus => write!(f, "ReverseSolidus(\\)"),
-            Self::Solidus => write!(f, "Solidus(/)"),
-            Self::Backspace => write!(f, "Backspace(\\b)"),
-            Self::Formfeed => write!(f, "Formfeed(\\f)"),
-            Self::Linefeed => write!(f, "Linefeed(\\n)"),
-            Self::CarriageReturn => write!(f, "CarriageReturn(\\r)"),
-            Self::HorizontalTab => write!(f, "HorizontalTab(\\t)"),
-            Self::Unicode => write!(f, "Unicode(\\u)"),
-            Self::Unexpected(c) => write!(f, "Unexpected({c})"),
+            StringToken::Quotation => write!(f, "\""),
+            StringToken::ReverseSolidus => write!(f, "\\"),
+            StringToken::Solidus => write!(f, "/"),
+            StringToken::Backspace => write!(f, "\\b"),
+            StringToken::Formfeed => write!(f, "\\f"),
+            StringToken::Linefeed => write!(f, "\\n"),
+            StringToken::CarriageReturn => write!(f, "\\r"),
+            StringToken::HorizontalTab => write!(f, "\\t"),
+            StringToken::Unicode => write!(f, "\\u"),
+            StringToken::Hex4Digits(s) => write!(f, "{}", s),
+            StringToken::Undecided(s) => write!(f, "{}", s),
+            StringToken::Unexpected(s) => write!(f, "{}", s),
+        }
+    }
+}
+impl std::fmt::Debug for StringToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Quotation => write!(f, "Quotation({})", self),
+            Self::ReverseSolidus => write!(f, "ReverseSolidus({})", self),
+            Self::Solidus => write!(f, "Solidus({})", self),
+            Self::Backspace => write!(f, "Backspace({})", self),
+            Self::Formfeed => write!(f, "Formfeed({})", self),
+            Self::Linefeed => write!(f, "Linefeed({})", self),
+            Self::CarriageReturn => write!(f, "CarriageReturn({})", self),
+            Self::HorizontalTab => write!(f, "HorizontalTab({})", self),
+            Self::Unicode => write!(f, "Unicode({})", self),
+            Self::Hex4Digits(_) => write!(f, "Unicode({})", self),
+            Self::Undecided(_) => write!(f, "Undecided({})", self),
+            Self::Unexpected(_) => write!(f, "Unexpected({})", self),
         }
     }
 }
@@ -144,15 +196,33 @@ impl SingleToken for StringToken {
             'r' => Self::CarriageReturn,
             't' => Self::HorizontalTab,
             'u' => Self::Unicode,
-            c => Self::Unexpected(c),
+            '0'..='9' | 'a'..='f' | 'A'..='F' => Self::Undecided(c),
+            c => Self::Unexpected(c.to_string()),
+        }
+    }
+}
+impl SequentialToken for StringToken {
+    fn confirm(s: &str) -> Self {
+        match s {
+            "\\\"" => Self::Quotation,
+            "\\\\" => Self::ReverseSolidus,
+            "/" => Self::Solidus,
+            "\\b" => Self::Backspace,
+            "\\f" => Self::Formfeed,
+            "\\n" => Self::Linefeed,
+            "\\r" => Self::CarriageReturn,
+            "\\t" => Self::HorizontalTab,
+            "\\u" => Self::Unicode,
+            _ if u32::from_str_radix(s, 16).is_ok() => Self::Hex4Digits(s.to_string()),
+            s => Self::Unexpected(s.to_string()),
         }
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 pub enum NumberToken {
     Zero,
-    OneNine,
+    OneNine(char),
     Plus,
     Minus,
     Dot,
@@ -162,13 +232,26 @@ pub enum NumberToken {
 impl std::fmt::Display for NumberToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Zero => write!(f, "Zero(0)"),
-            Self::OneNine => write!(f, "OneNine(1-9)"),
-            Self::Plus => write!(f, "Plus(+)"),
-            Self::Minus => write!(f, "Minus(-)"),
-            Self::Dot => write!(f, "Dot(.)"),
-            Self::Exponent => write!(f, "Exponent(e|E)"),
-            Self::Unexpected(c) => write!(f, "Unexpected({c})"),
+            Self::Zero => write!(f, "0"),
+            Self::OneNine(c) => write!(f, "{}", c),
+            Self::Plus => write!(f, "+"),
+            Self::Minus => write!(f, "-"),
+            Self::Dot => write!(f, "."),
+            Self::Exponent => write!(f, "E"),
+            Self::Unexpected(c) => write!(f, "({})", c),
+        }
+    }
+}
+impl std::fmt::Debug for NumberToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Zero => write!(f, "Zero({})", self),
+            Self::OneNine(_) => write!(f, "OneNine({})", self),
+            Self::Plus => write!(f, "Plus({})", self),
+            Self::Minus => write!(f, "Minus({})", self),
+            Self::Dot => write!(f, "Dot({})", self),
+            Self::Exponent => write!(f, "Exponent({})", self),
+            Self::Unexpected(_) => write!(f, "Unexpected({})", self),
         }
     }
 }
@@ -176,7 +259,7 @@ impl SingleToken for NumberToken {
     fn tokenize(c: char) -> Self {
         match c {
             '0' => Self::Zero,
-            '1'..='9' => Self::OneNine,
+            '1'..='9' => Self::OneNine(c),
             '+' => Self::Plus,
             '-' => Self::Minus,
             '.' => Self::Dot,

@@ -29,7 +29,7 @@ impl<'a> Parser<'a> {
             self.parse_null()
         } else if matches!(tokenized, MainToken::Quotation) {
             self.parse_string()
-        } else if matches!(tokenized, MainToken::Minus | MainToken::Digit) {
+        } else if matches!(tokenized, MainToken::Minus | MainToken::Digit(_)) {
             self.parse_number()
         } else {
             bail!("{}: unexpected token \"{c}\", while parse value", postr(pos))
@@ -157,7 +157,9 @@ impl<'a> Parser<'a> {
                 char::from_u32(u32::from_str_radix(&hex4digits, 16)?)
                     .ok_or_else(|| anyhow!("{}: cannot \\{hex4digits} convert to unicode", postr(p)))
             }
-            StringToken::Unexpected(c) => bail!("{}: unexpected escape sequence{c}", postr(p)),
+            StringToken::Hex4Digits(s) => bail!("{}: unexpected escape sequence{}", postr(p), s),
+            StringToken::Undecided(c) => bail!("{}: unexpected escape sequence{}", postr(p), c),
+            StringToken::Unexpected(s) => bail!("{}: unexpected escape sequence{}", postr(p), s),
         }
     }
 
@@ -199,7 +201,7 @@ impl<'a> Parser<'a> {
     fn parse_digits(&mut self, (start_row, start_col): (usize, usize)) -> anyhow::Result<String> {
         let mut digits = String::new();
         while let Some(&((r, _c), c)) = self.lexer.peek() {
-            if start_row >= r && matches!(NumberToken::tokenize(c), NumberToken::Zero | NumberToken::OneNine) {
+            if start_row >= r && matches!(NumberToken::tokenize(c), NumberToken::Zero | NumberToken::OneNine(_)) {
                 let (_, digit) =
                     self.lexer.next().unwrap_or_else(|| unreachable!("previous peek ensure this next success"));
                 digits.push(digit)
@@ -239,7 +241,7 @@ impl<'a> Parser<'a> {
                     self.lexer.next().unwrap_or_else(|| unreachable!("previous peek ensure this next success"));
                 exponent_component.push(sign)
             }
-            NumberToken::Zero | NumberToken::OneNine => (),
+            NumberToken::Zero | NumberToken::OneNine(_) => (),
             _ => bail!("{}: unexpected '{sign_or_digits}', but expected sign or digit", postr((start_row, start_col))),
         }
         exponent_component.push_str(&self.parse_digits((start_row, start_col))?);
