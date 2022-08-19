@@ -120,8 +120,8 @@ impl<'a> Parser<'a> {
         let mut string = String::new();
         let ((row, col), _quotation) = self.lexer.lex_1_char(StringToken::Quotation, false)?;
         while !self.lexer.is_next(StringToken::Quotation, false) {
-            let &((r, _c), c) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, while parse string"))?;
-            if row < r {
+            let &(_, c) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, while parse string"))?;
+            if c == '\n' {
                 bail!("{}: open string literal, must be closed by '\"'", postr((row, col)));
             } else if self.lexer.is_next(StringToken::ReverseSolidus, false) {
                 string.push(self.parse_escape_sequence()?);
@@ -165,12 +165,10 @@ impl<'a> Parser<'a> {
     pub fn parse_number(&mut self) -> anyhow::Result<Value> {
         let mut number = String::new();
         let &((row, col), _) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, while parse escape"))?;
-        if let Ok(((r, _c), minus)) = self.lexer.lex_1_char(NumberToken::Minus, false) {
-            ensure!(row >= r, "{}: unexpected linefeed, while parse number", postr((row, col)));
+        if let Ok((_c, minus)) = self.lexer.lex_1_char(NumberToken::Minus, false) {
             number.push(minus);
         }
-        if let Ok(((r, _c), zero)) = self.lexer.lex_1_char(NumberToken::Zero, false) {
-            ensure!(row >= r, "{}: unexpected linefeed, while parse number", postr((row, col)));
+        if let Ok((_, zero)) = self.lexer.lex_1_char(NumberToken::Zero, false) {
             number.push(zero);
         } else {
             number.push_str(&self.parse_digits((row, col))?);
@@ -197,8 +195,8 @@ impl<'a> Parser<'a> {
     /// `digits` := { "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" }
     fn parse_digits(&mut self, (start_row, start_col): (usize, usize)) -> anyhow::Result<String> {
         let mut digits = String::new();
-        while let Some(&((r, _c), c)) = self.lexer.peek() {
-            if start_row >= r && matches!(NumberToken::tokenize(c), NumberToken::Zero | NumberToken::OneNine(_)) {
+        while let Some(&(_, c)) = self.lexer.peek() {
+            if matches!(NumberToken::tokenize(c), NumberToken::Zero | NumberToken::OneNine(_)) {
                 let (_, digit) =
                     self.lexer.next().unwrap_or_else(|| unreachable!("previous peek ensure this next success"));
                 digits.push(digit)
@@ -215,8 +213,7 @@ impl<'a> Parser<'a> {
     /// `fraction_part` := "." `digits`
     pub fn parse_fraction(&mut self, (start_row, start_col): (usize, usize)) -> anyhow::Result<String> {
         let mut fraction_component = String::new();
-        let ((r, _c), dot) = self.lexer.lex_1_char(NumberToken::Dot, false)?;
-        ensure!(start_row >= r, "{}: unexpected linefeed, while parse number", postr((start_row, start_col)));
+        let (_, dot) = self.lexer.lex_1_char(NumberToken::Dot, false)?;
         fraction_component.push(dot);
         fraction_component.push_str(&self.parse_digits((start_row, start_col))?);
         Ok(fraction_component)
@@ -226,12 +223,9 @@ impl<'a> Parser<'a> {
     /// `exponent_part` := ("E" | "e") \[ "+" | "-" \] `digits`
     pub fn parse_exponent(&mut self, (start_row, start_col): (usize, usize)) -> anyhow::Result<String> {
         let mut exponent_component = String::new();
-        let ((r, _c), exponent) = self.lexer.lex_1_char(NumberToken::Exponent, false)?;
-        ensure!(start_row >= r, "{}: unexpected linefeed, while parse number", postr((start_row, start_col)));
+        let (_, exponent) = self.lexer.lex_1_char(NumberToken::Exponent, false)?;
         exponent_component.push(exponent);
-        let &((r, _c), sign_or_digits) =
-            self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, while parse exponent"))?;
-        ensure!(start_row >= r, "{}: unexpected linefeed, while parse number", postr((start_row, start_col)));
+        let &(_, sign_or_digits) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, while parse exponent"))?;
         match NumberToken::tokenize(sign_or_digits) {
             NumberToken::Plus | NumberToken::Minus => {
                 let (_, sign) =
