@@ -116,6 +116,7 @@ mod tests {
         assert_eq!(lexer.peek(), Some(&((0, 0), '{')));
         assert_eq!(lexer.peek(), Some(&((0, 0), '{')));
         assert_eq!(lexer.next(), Some(((0, 0), '{')));
+        assert_eq!(lexer.next(), Some(((0, 1), '\n')));
         assert_eq!(lexer.next(), Some(((1, 0), '"')));
         assert_eq!(lexer.next(), Some(((1, 1), 'a')));
         assert_eq!(lexer.next(), Some(((1, 2), '"')));
@@ -125,7 +126,13 @@ mod tests {
         assert_eq!(lexer.next(), Some(((1, 3), ':')));
         assert_eq!(lexer.next(), Some(((1, 4), ' ')));
         assert_eq!(lexer.next(), Some(((1, 5), '1')));
+        assert_eq!(lexer.peek(), Some(&((1, 6), '\n')));
+        assert_eq!(lexer.peek(), Some(&((1, 6), '\n')));
+        assert_eq!(lexer.peek(), Some(&((1, 6), '\n')));
+        assert_eq!(lexer.next(), Some(((1, 6), '\n')));
         assert_eq!(lexer.next(), Some(((2, 0), '}')));
+        assert_eq!(lexer.peek(), Some(&((2, 1), '\n')));
+        assert_eq!(lexer.next(), Some(((2, 1), '\n')));
         assert_eq!(lexer.peek(), None);
         assert_eq!(lexer.next(), None);
         assert_eq!(lexer.peek(), None);

@@ -260,6 +260,7 @@ mod tests {
         } else {
             unreachable!("\"{{}}\" must be parsed as empty object");
         }
+        assert_eq!(parser.lexer.next(), Some(((0, 2), '\n')));
         assert_eq!(parser.lexer.next(), None);
     }
 
@@ -273,6 +274,7 @@ mod tests {
         } else {
             unreachable!("\"[]\" must be parsed as empty array");
         }
+        assert_eq!(parser.lexer.next(), Some(((2, 3), '\n')));
         assert_eq!(parser.lexer.next(), None);
     }
 
@@ -286,6 +288,7 @@ mod tests {
         } else {
             unreachable!("\"true\" and \"false\" must be parsed as bool immediate");
         }
+        assert_eq!((tru_parser.lexer.next(), fal_parser.lexer.next()), (Some(((0, 4), '\n')), Some(((0, 5), '\n'))));
         assert_eq!((tru_parser.lexer.next(), fal_parser.lexer.next()), (None, None));
 
         let (tru3, f4lse) = ("tru3".into(), "f4lse".into());
@@ -295,6 +298,7 @@ mod tests {
         assert!(tru3_err.to_string().contains("tru3"));
         assert!(f4lse_err.to_string().contains("false"));
         assert!(f4lse_err.to_string().contains("f4lse"));
+        assert_eq!((tru_parser.lexer.next(), fal_parser.lexer.next()), (Some(((0, 4), '\n')), Some(((0, 5), '\n'))));
         assert_eq!((tru_parser.lexer.next(), fal_parser.lexer.next()), (None, None));
     }
 
@@ -304,6 +308,7 @@ mod tests {
         let mut parser = Parser::new(&null);
         let null = parser.parse_null().unwrap();
         assert_eq!(null, Value::Null);
+        assert_eq!(parser.lexer.next(), Some(((0, 4), '\n')));
         assert_eq!(parser.lexer.next(), None);
 
         let nuli = "nuli".into();
@@ -311,6 +316,7 @@ mod tests {
         let nuli = parser.parse_null().unwrap_err();
         assert!(nuli.to_string().contains("null"));
         assert!(nuli.to_string().contains("nuli"));
+        assert_eq!(parser.lexer.next(), Some(((0, 4), '\n')));
         assert_eq!(parser.lexer.next(), None);
     }
 
@@ -320,24 +326,28 @@ mod tests {
         let mut parser = Parser::new(&string);
         let string = parser.parse_string().unwrap();
         assert_eq!(string, Value::String("Rust".to_string()));
+        assert_eq!(parser.lexer.next(), Some(((0, 6), '\n')));
         assert_eq!(parser.lexer.next(), None);
 
         let solidus = r#""Ru\"st""#.into();
         let mut parser = Parser::new(&solidus);
         let solidus = parser.parse_string().unwrap();
         assert_eq!(solidus, Value::String("Ru\"st".to_string()));
+        assert_eq!(parser.lexer.next(), Some(((0, 8), '\n')));
         assert_eq!(parser.lexer.next(), None);
 
         let linefeed = r#""Ru\nst""#.into();
         let mut parser = Parser::new(&linefeed);
         let linefeed = parser.parse_string().unwrap();
         assert_eq!(linefeed, Value::String("Ru\nst".to_string()));
+        assert_eq!(parser.lexer.next(), Some(((0, 8), '\n')));
         assert_eq!(parser.lexer.next(), None);
 
         let unicode = r#""R\u00f9st""#.into();
         let mut parser = Parser::new(&unicode);
         let unicode = parser.parse_string().unwrap();
         assert_eq!(unicode, Value::String("Rùst".to_string()));
+        assert_eq!(parser.lexer.next(), Some(((0, 11), '\n')));
         assert_eq!(parser.lexer.next(), None);
     }
 
@@ -347,24 +357,28 @@ mod tests {
         let mut parser = Parser::new(&hundred);
         let hundred = parser.parse_number().unwrap();
         assert_eq!(hundred, Value::Integer(100));
+        assert_eq!(parser.lexer.next(), Some(((0, 3), '\n')));
         assert_eq!(parser.lexer.next(), None);
 
         let half = "0.5".into();
         let mut parser = Parser::new(&half);
         let half = parser.parse_number().unwrap();
         assert_eq!(half, Value::Float(0.5));
+        assert_eq!(parser.lexer.next(), Some(((0, 3), '\n')));
         assert_eq!(parser.lexer.next(), None);
 
         let thousand = "1E3".into();
         let mut parser = Parser::new(&thousand);
         let thousand = parser.parse_number().unwrap();
         assert_eq!(thousand, Value::Float(1000.));
+        assert_eq!(parser.lexer.next(), Some(((0, 3), '\n')));
         assert_eq!(parser.lexer.next(), None);
 
         let ten = "0.1e2".into();
         let mut parser = Parser::new(&ten);
         let ten = parser.parse_number().unwrap();
         assert_eq!(ten, Value::Float(10.));
+        assert_eq!(parser.lexer.next(), Some(((0, 5), '\n')));
         assert_eq!(parser.lexer.next(), None);
     }
 }

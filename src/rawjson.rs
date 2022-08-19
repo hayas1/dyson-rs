@@ -1,5 +1,7 @@
 use std::{ops::Index, slice::SliceIndex, vec::IntoIter};
 
+/// [`RawJson`] represent raw json string sequence.
+/// each sequence is terminated in line feed `'\n'`.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct RawJson {
     json: Vec<Vec<char>>,
@@ -44,7 +46,7 @@ impl FromIterator<String> for RawJson {
             json: iter
                 .into_iter()
                 .flat_map(|s| s.replace("\r\n", "\n").split('\n').map(|s| s.to_string()).collect::<Vec<_>>())
-                .map(|s| s.chars().collect())
+                .map(|s| (s + "\n").chars().collect())
                 .collect(),
         }
     }
@@ -101,6 +103,7 @@ mod tests {
         let mut j_iter = json.into_iter();
         let mut line1 = j_iter.next().unwrap().into_iter();
         assert_eq!(line1.next(), Some('{'));
+        assert_eq!(line1.next(), Some('\n'));
         assert_eq!(line1.next(), None);
         let mut line2 = j_iter.next().unwrap().into_iter();
         assert_eq!(line2.next(), Some('"'));
@@ -109,9 +112,11 @@ mod tests {
         assert_eq!(line2.next(), Some(':'));
         assert_eq!(line2.next(), Some(' '));
         assert_eq!(line2.next(), Some('1'));
+        assert_eq!(line2.next(), Some('\n'));
         assert_eq!(line2.next(), None);
         let mut line3 = j_iter.next().unwrap().into_iter();
         assert_eq!(line3.next(), Some('}'));
+        assert_eq!(line3.next(), Some('\n'));
         assert_eq!(line3.next(), None);
         assert_eq!(j_iter.next(), None);
         // let _json_is_moved = json;  // compile error
@@ -120,7 +125,7 @@ mod tests {
     #[test]
     fn test_json_iter() {
         let json: RawJson = "{\n\"b\": 2\r\n}".into();
-        let expected = vec![vec!['{'], vec!['"', 'b', '"', ':', ' ', '2'], vec!['}']];
+        let expected = vec![vec!['{', '\n'], vec!['"', 'b', '"', ':', ' ', '2', '\n'], vec!['}', '\n']];
         for (l, el) in json.iter().zip(expected.iter()) {
             for (c, ec) in l.iter().zip(el.iter()) {
                 assert_eq!(c, ec);
@@ -134,13 +139,16 @@ mod tests {
         let json: RawJson = vec!["{", "\"a\": 1", "}"].into_iter().collect();
         let mut j_iter = json.into_iter().flat_map(|l| l.into_iter());
         assert_eq!(j_iter.next(), Some('{'));
+        assert_eq!(j_iter.next(), Some('\n'));
         assert_eq!(j_iter.next(), Some('"'));
         assert_eq!(j_iter.next(), Some('a'));
         assert_eq!(j_iter.next(), Some('"'));
         assert_eq!(j_iter.next(), Some(':'));
         assert_eq!(j_iter.next(), Some(' '));
         assert_eq!(j_iter.next(), Some('1'));
+        assert_eq!(j_iter.next(), Some('\n'));
         assert_eq!(j_iter.next(), Some('}'));
+        assert_eq!(j_iter.next(), Some('\n'));
         assert_eq!(j_iter.next(), None);
     }
 
