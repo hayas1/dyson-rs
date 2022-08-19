@@ -27,7 +27,7 @@ impl<'a> Lexer<'a> {
     /// read next token without skip whitespace. this method's complexity is **O(1)**.
     /// if next token is eof, return None.
     pub fn new(json: &'a RawJson) -> Self {
-        let curr = (!json.is_empty()).then(|| ((0, 0), json[0][0]));
+        let curr = json.first();
         Self { json, curr }
     }
 

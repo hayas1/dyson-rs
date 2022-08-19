@@ -28,6 +28,11 @@ impl RawJson {
         self.rows() == 0
     }
 
+    /// get first element and its position
+    pub fn first(&self) -> Option<((usize, usize), char)> {
+        (!self.is_empty()).then(|| ((0, 0), self[0][0]))
+    }
+
     /// get iterator of raw json
     pub fn iter(&self) -> impl Iterator<Item = &Vec<char>> {
         self.json.iter()
