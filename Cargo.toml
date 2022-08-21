@@ -14,6 +14,7 @@ readme = "./README.md"
 
 [dependencies]
 anyhow = "1.0"
+thiserror = "1.0"
 clap = { version = "3.2", features = ["derive"] }
 atty = "0.2"
 

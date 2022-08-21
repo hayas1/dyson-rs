@@ -1,9 +1,11 @@
 use super::{
-    error::postr,
+    error::WhileParseError,
     token::{MainToken, SequentialToken, SingleToken},
 };
-use crate::rawjson::RawJson;
-use anyhow::{anyhow, bail, ensure};
+use crate::{
+    rawjson::RawJson,
+    syntax::error::{SequentialTokenError, SingleTokenError},
+};
 
 pub type Nexted = ((usize, usize), char); // next is not verb but...
 pub type Peeked<'a> = &'a Nexted;
@@ -55,47 +57,58 @@ impl<'a> Lexer<'a> {
 
     /// read next expected token. if `skip_ws`, this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
     /// if success, lexer cursor move to next, but if error, lexer cursor do not move next (skip whitespace only).
-    pub fn lex_1_char<T: SingleToken>(&mut self, token: T, skip_ws: bool) -> anyhow::Result<Nexted> {
+    pub fn lex_1_char<T: 'static + SingleToken>(&mut self, token: T, skip_ws: bool) -> anyhow::Result<Nexted> {
         if let Some(&(pos, c)) = if skip_ws { self.skip_whitespace() } else { self.peek() } {
-            ensure!(T::tokenize(c) == token, "{}: unexpected '{c}', but expected '{token}'", postr(pos));
-            self.next().ok_or_else(|| unreachable!("previous peek ensure this next success"))
+            if T::tokenize(c) != token {
+                Err(SingleTokenError::UnexpectedToken { expected: vec![token], found: T::tokenize(c), pos })?
+            } else {
+                self.next().ok_or_else(|| unreachable!("previous peek ensure this next success"))
+            }
         } else {
-            bail!("unexpected EOF, but expected {token}",)
+            Err(SingleTokenError::UnexpectedEof { expected: vec![token], pos: self.json.eof() })?
         }
     }
 
-    /// read next `n` chars ***without*** skipping whitespace until line separator. this method's complexity is **O(n)**.
+    /// read next `n` chars ***without*** skipping whitespace until white space. this method's complexity is **O(n)**.
     /// if success, lexer cursor move `n` step, but if error, lexer cursor will stop error ocurred position.
     pub fn lex_n_chars(&mut self, n: usize) -> anyhow::Result<(String, Option<Nexted>)> {
         if n == 0 {
             return Ok((String::new(), self.peek().cloned()));
         }
-        let &((sr, sl), _c) = self.peek().ok_or_else(|| anyhow!("unexpected EOF, lex {n} chars"))?;
+        let &(start, _) = self.peek().ok_or_else(|| WhileParseError::UnexpectedEof {
+            found: "".into(),
+            start: self.json.eof(),
+            end: self.json.eof(),
+        })?;
         let mut result = String::new();
-        for _ in 0..n {
-            let ((r, _l), c) =
-                self.next().ok_or_else(|| anyhow!("{}: unexpected EOF, unknown \"{result}\"", postr((sr, sl))))?;
-            (sr >= r)
-                .then(|| result.push(c))
-                .ok_or_else(|| anyhow!("{}: unexpected line separator, unknown \"{result}\"", postr((sr, sl))))?;
+        for (p, c) in self.take(n) {
+            if MainToken::tokenize(c) == MainToken::Whitespace {
+                return Err(WhileParseError::UnexpectedWhiteSpace { found: result, start, end: p })?;
+            } else {
+                result.push(c)
+            }
         }
-        Ok((result, self.peek().cloned()))
+        if result.len() == n {
+            Ok((result, self.peek().cloned()))
+        } else {
+            Err(WhileParseError::UnexpectedEof { found: result, start, end: self.json.eof() })?
+        }
     }
 
     /// read next sequential token with skipping whitespace until line separator.
     /// this method's complexity is **O(len(token))** (see [lex_n_chars](Lexer)).
-    pub fn lex_expected<T: SequentialToken>(&mut self, token: T) -> anyhow::Result<Option<Nexted>> {
-        if let Some((_pos, _)) = self.skip_whitespace() {
+    pub fn lex_expected<T: 'static + SequentialToken>(&mut self, token: T) -> anyhow::Result<Option<Nexted>> {
+        if let Some(&(start, _)) = self.skip_whitespace() {
             let (ts, nexted) = self.lex_n_chars(token.to_string().len())?;
-            if let Some((p, c)) = nexted {
-                ensure!(T::confirm(&ts) == token, "{}: unexpected '{ts}', but expected '{token}'", postr(p));
-                Ok(Some((p, c)))
+            if T::confirm(&ts) == token {
+                Ok(nexted)
             } else {
-                ensure!(T::confirm(&ts) == token, "unexpected '{ts}', but expected '{token}'");
-                Ok(None)
+                let end = nexted.map(|(p, _)| p).unwrap_or_else(|| self.json.eof());
+                Err(SequentialTokenError::UnexpectedToken { expected: vec![token], found: ts, start, end })?
             }
         } else {
-            bail!("unexpected EOF, expected some token")
+            let eof = self.json.eof();
+            Err(SequentialTokenError::UnexpectedEof { expected: vec![token], start: eof, end: eof })?
         }
     }
 
@@ -109,6 +122,8 @@ impl<'a> Lexer<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::syntax::error::postr;
+
     use super::*;
 
     #[test]
@@ -160,19 +175,20 @@ mod tests {
         let json: RawJson = vec![" {", " ]"].into_iter().collect();
         let mut lexer = Lexer::new(&json);
         let error = lexer.lex_1_char(MainToken::LeftBrace, false).unwrap_err();
-        assert!(error.to_string().contains(&postr((0, 0))));
-        assert!(error.to_string().contains("' '"));
-        assert!(error.to_string().contains('{'));
+        println!("{}", error);
+        assert!(error.to_string().contains(&postr(&(0, 0))));
+        assert!(error.to_string().contains("Whitespace"));
+        assert!(error.to_string().contains("LeftBrace"));
         let ok = lexer.lex_1_char(MainToken::LeftBrace, true).unwrap();
         assert_eq!(ok, ((0, 1), '{'));
         let error = lexer.lex_1_char(MainToken::RightBrace, true).unwrap_err();
-        assert!(error.to_string().contains(&postr((1, 1))));
+        assert!(error.to_string().contains(&postr(&(1, 1))));
         assert!(error.to_string().contains('}'));
         assert!(error.to_string().contains(']'));
         assert!(lexer.is_next(MainToken::RightBracket, true));
         assert!(!lexer.is_next(MainToken::RightBrace, true));
         let error = lexer.lex_1_char(MainToken::RightBrace, true).unwrap_err();
-        assert!(error.to_string().contains(&postr((1, 1))));
+        assert!(error.to_string().contains(&postr(&(1, 1))));
         assert!(error.to_string().contains('}'));
         assert!(error.to_string().contains(']'));
         assert!(lexer.is_next(MainToken::RightBracket, true));
