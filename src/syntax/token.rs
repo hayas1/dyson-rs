@@ -278,8 +278,8 @@ mod tests {
 
     #[test]
     fn test_undecided() {
-        assert_eq!(MainToken::tokenize('t'), MainToken::Undecided('t'));
-        assert_eq!(MainToken::tokenize('f'), MainToken::Undecided('f'));
-        assert_eq!(MainToken::tokenize('n'), MainToken::Undecided('n'));
+        assert_eq!(<ImmediateToken as SingleToken>::tokenize('t'), ImmediateToken::Undecided('t'));
+        assert_eq!(<ImmediateToken as SingleToken>::tokenize('f'), ImmediateToken::Undecided('f'));
+        assert_eq!(<ImmediateToken as SingleToken>::tokenize('n'), ImmediateToken::Undecided('n'));
     }
 }
