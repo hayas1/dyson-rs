@@ -1,6 +1,5 @@
+use super::{token::SequentialToken, SingleToken, StringToken};
 use thiserror::Error;
-
-use super::{token::SequentialToken, SingleToken};
 
 pub type Position = (usize, usize);
 
@@ -36,10 +35,53 @@ pub enum SequentialTokenError<T: SequentialToken> {
 }
 
 #[derive(Error, Debug)]
-pub enum WhileParseError {
+pub enum ParseTokenError {
     #[error("{} - {}: unexpected EOF, unknown token \"{}\"", postr(start), postr(end), if found.is_empty() {"empty string"} else {found})]
     UnexpectedWhiteSpace { found: String, start: Position, end: Position },
 
     #[error("{} - {}: unexpected EOF, unknown token \"{}\"", postr(start), postr(end), if found.is_empty() {"empty string"} else {found})]
     UnexpectedEof { found: String, start: Position, end: Position },
+}
+
+#[derive(Error, Debug)]
+pub enum ParseStringError {
+    #[error("{} - {}: unexpected Linefeed, cannot close string literal \"{}\"", postr(start), postr(end), comp)]
+    UnexpectedLinefeed { comp: String, start: Position, end: Position },
+
+    #[error("{} - {}: unexpected EOF, cannot close string literal \"{}\"", postr(start), postr(end), comp)]
+    UnexpectedEof { comp: String, start: Position, end: Position },
+
+    #[error("{} - {}: unsupported {:?} in Rust", postr(start), postr(end), escape)]
+    UnsupportedEscapeSequence { escape: StringToken, start: Position, end: Position },
+
+    #[error("{} - {}: {} cannot be converted into unicode", postr(start), postr(end), uc)]
+    CannotConvertUnicode { uc: String, start: Position, end: Position },
+
+    #[error("{} - {}: unexpected escape sequence {:?}", postr(start), postr(end), escape)]
+    UnexpectedEscapeSequence { escape: StringToken, start: Position, end: Position },
+}
+
+#[derive(Error, Debug)]
+pub enum ParseNumberError {
+    #[error("{} - {}: unexpected EOF, cannot close string literal \"{}\"", postr(start), postr(end), num)]
+    UnexpectedEof { num: String, start: Position, end: Position },
+
+    #[error("{} - {}: \"{}\" maybe valid number, but cannot be converted into `i64`", postr(start), postr(end), num)]
+    CannotConvertI64 { num: String, start: Position, end: Position },
+
+    #[error("{} - {}: \"{}\" maybe valid number, but cannot be converted into `f64`", postr(start), postr(end), num)]
+    CannotConvertF64 { num: String, start: Position, end: Position },
+
+    #[error("{}: empty digits is not allowed", postr(pos))]
+    EmptyDigits { pos: Position },
+}
+
+#[cfg(test)]
+mod tests {
+    // use super::*;
+
+    #[test]
+    fn test_parse_invalid_object() {
+        // TODO
+    }
 }

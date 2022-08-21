@@ -1,5 +1,5 @@
 use super::{
-    error::WhileParseError,
+    error::ParseTokenError,
     token::{MainToken, SequentialToken, SingleToken},
 };
 use crate::{
@@ -75,7 +75,7 @@ impl<'a> Lexer<'a> {
         if n == 0 {
             return Ok((String::new(), self.peek().cloned()));
         }
-        let &(start, _) = self.peek().ok_or_else(|| WhileParseError::UnexpectedEof {
+        let &(start, _) = self.peek().ok_or_else(|| ParseTokenError::UnexpectedEof {
             found: "".into(),
             start: self.json.eof(),
             end: self.json.eof(),
@@ -83,7 +83,7 @@ impl<'a> Lexer<'a> {
         let mut result = String::new();
         for (p, c) in self.take(n) {
             if MainToken::tokenize(c) == MainToken::Whitespace {
-                return Err(WhileParseError::UnexpectedWhiteSpace { found: result, start, end: p })?;
+                return Err(ParseTokenError::UnexpectedWhiteSpace { found: result, start, end: p })?;
             } else {
                 result.push(c)
             }
@@ -91,7 +91,7 @@ impl<'a> Lexer<'a> {
         if result.len() == n {
             Ok((result, self.peek().cloned()))
         } else {
-            Err(WhileParseError::UnexpectedEof { found: result, start, end: self.json.eof() })?
+            Err(ParseTokenError::UnexpectedEof { found: result, start, end: self.json.eof() })?
         }
     }
 
