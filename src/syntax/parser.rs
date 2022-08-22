@@ -58,9 +58,9 @@ impl<'a> Parser<'a> {
         let (_, _left_brace) = self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::LeftBrace)?;
         while !self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBrace) {
             if self.lexer.is_next::<_, SkipWs<true>>(MainToken::Quotation) {
-                let key = self.parse_string().context("while parse object's key")?;
-                self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Colon).context("while parse object")?;
-                let value = self.parse_value().context("while parse object's value")?;
+                let key = self.parse_string()?;
+                self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Colon)?;
+                let value = self.parse_value()?;
                 object.insert(key.into(), value);
 
                 if let Ok((p, _comma)) = self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Comma) {
@@ -162,14 +162,10 @@ impl<'a> Parser<'a> {
     /// `escape_sequence` := "\\"" | "\\\\" | "\\/" | "\n" | "\r" | "\t" | `unicode`
     pub fn parse_escape_sequence(&mut self) -> anyhow::Result<char> {
         let (start, reverse_solidus) = self.lexer.lex_1_char::<_, SkipWs<false>>(StringToken::ReverseSolidus)?;
-        let (p, escaped) = self
-            .lexer
-            .next()
-            .ok_or_else(|| {
-                let eof = self.lexer.json.eof();
-                ParseStringError::UnexpectedEof { comp: reverse_solidus.to_string(), start, end: eof }
-            })
-            .context("while parse escape sequence")?;
+        let (p, escaped) = self.lexer.next().ok_or_else(|| {
+            let eof = self.lexer.json.eof();
+            ParseStringError::UnexpectedEof { comp: reverse_solidus.to_string(), start, end: eof }
+        })?;
         let tokenized = StringToken::tokenize(escaped);
         match tokenized {
             StringToken::Quotation => Ok('"'),
@@ -190,14 +186,12 @@ impl<'a> Parser<'a> {
     /// `unicode` := "\u" `hex4digits`
     pub fn parse_unicode(&mut self, start: Position) -> anyhow::Result<char> {
         let (hex4, nexted) = self.lexer.lex_n_chars(4)?;
-        let (p, _) = nexted
-            .ok_or_else(|| {
-                let eof = self.lexer.json.eof();
-                ParseStringError::UnexpectedEof { comp: hex4.clone(), start, end: eof }
-            })
-            .context("while parse unicode")?;
+        let (p, _) = nexted.ok_or_else(|| {
+            let eof = self.lexer.json.eof();
+            ParseStringError::UnexpectedEof { comp: hex4.clone(), start, end: eof }
+        })?;
         let uc = char::from_u32(u32::from_str_radix(&hex4, 16)?);
-        uc.ok_or(ParseStringError::CannotConvertUnicode { uc: hex4, start, end: p }).context("while parse unicode")
+        Ok(uc.ok_or_else(|| ParseStringError::CannotConvertUnicode { uc: hex4, start, end: p })?)
     }
 
     /// parse `number` of json. the following ebnf is not precise.<br>
@@ -280,14 +274,10 @@ impl<'a> Parser<'a> {
         let mut exponent_component = String::new();
         let (_, exponent) = self.lexer.lex_1_char::<_, SkipWs<false>>(NumberToken::Exponent)?;
         exponent_component.push(exponent);
-        let &(pos, sign_or_digits) = self
-            .lexer
-            .peek()
-            .ok_or_else(|| {
-                let eof = self.lexer.json.eof();
-                ParseNumberError::UnexpectedEof { num: exponent_component.clone(), start, end: eof }
-            })
-            .context("while parse exponent")?;
+        let &(pos, sign_or_digits) = self.lexer.peek().ok_or_else(|| {
+            let eof = self.lexer.json.eof();
+            ParseNumberError::UnexpectedEof { num: exponent_component.clone(), start, end: eof }
+        })?;
         match NumberToken::tokenize(sign_or_digits) {
             NumberToken::Plus | NumberToken::Minus => {
                 let (_, sign) =

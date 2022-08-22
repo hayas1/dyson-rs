@@ -3,7 +3,6 @@ use crate::{
     rawjson::RawJson,
     syntax::{error::StructureError, Parser},
 };
-use anyhow::Context as _;
 use std::{
     fs::File,
     io::{BufRead, BufReader, BufWriter, Read, Write},
@@ -88,7 +87,7 @@ impl Value {
     /// json.write(file).unwrap();
     /// ```
     pub fn write<W: Write>(&self, w: W) -> anyhow::Result<usize> {
-        BufWriter::new(w).write(Indent::<1>::format(self).as_bytes()).context("could not write file")
+        Ok(BufWriter::new(w).write(Indent::<1>::format(self).as_bytes())?)
     }
     /// write ast to file specified by path. written string has proper indent. see [`Value::stringify`] also.
     /// # examples
@@ -111,7 +110,7 @@ impl Value {
     }
     /// write ast to file with indent. see [`Value::write`] and [`Value::dump_with`] also.
     pub fn write_with<W: Write, F: JsonFormatter>(&self, w: W) -> anyhow::Result<usize> {
-        BufWriter::new(w).write(F::format(self).as_bytes()).context("could not write file")
+        Ok(BufWriter::new(w).write(F::format(self).as_bytes())?)
     }
     /// write ast to file specified by path with indent. see [`Indent`] also
     /// # examples
