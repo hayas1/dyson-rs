@@ -1,5 +1,8 @@
 use super::Value;
-use crate::{rawjson::RawJson, syntax::Parser};
+use crate::{
+    rawjson::RawJson,
+    syntax::{error::StructureError, Parser},
+};
 use anyhow::Context as _;
 use std::{
     fs::File,
@@ -28,7 +31,15 @@ impl Value {
     /// ```
     pub fn parse<J: Into<RawJson>>(j: J) -> anyhow::Result<Value> {
         let json = j.into();
-        Parser::new(&json).parse_value()
+        let mut parser = Parser::new(&json);
+        let result = parser.parse_value();
+        if result.is_ok() {
+            if let Some(&(p, _)) = parser.lexer.skip_whitespace() {
+                let eof = parser.lexer.json.eof();
+                return Err(StructureError::FoundSurplus { start: p, end: eof })?;
+            }
+        }
+        result
     }
     /// parse file like raw json into ast. see [`Value::load`] also.
     /// # examples

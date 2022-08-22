@@ -9,7 +9,7 @@ use anyhow::Context as _;
 use std::collections::HashMap;
 
 pub struct Parser<'a> {
-    lexer: Lexer<'a>,
+    pub(crate) lexer: Lexer<'a>,
 }
 
 impl<'a> Parser<'a> {

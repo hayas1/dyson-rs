@@ -1,4 +1,4 @@
-mod error;
+pub(crate) mod error;
 mod lexer;
 mod parser;
 mod token;
