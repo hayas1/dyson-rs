@@ -44,6 +44,12 @@ pub enum ParseTokenError {
 }
 
 #[derive(Error, Debug)]
+pub enum StructureError {
+    #[error("{}: trailing comma is not allowed in json", postr(pos))]
+    TrailingComma { pos: Position },
+}
+
+#[derive(Error, Debug)]
 pub enum ParseStringError {
     #[error("{} - {}: unexpected Linefeed, cannot close string literal \"{}\"", postr(start), postr(end), comp)]
     UnexpectedLinefeed { comp: String, start: Position, end: Position },
@@ -78,10 +84,38 @@ pub enum ParseNumberError {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
+    use crate::ast::Value;
 
     #[test]
-    fn test_parse_invalid_object() {
-        // TODO
+    fn test_parse_double() {
+        let double = "{{}}";
+        let err = Value::parse(double).unwrap_err();
+        assert!(err.to_string().contains('}'));
+        assert!(err.to_string().contains('{'));
+
+        let double = "[[]]";
+        let ok = Value::parse(double).unwrap();
+        assert_eq!(ok, Value::Array(vec![Value::Array(Vec::new())]));
+    }
+
+    #[test]
+    fn test_trailing_comma() {
+        let object = r#"
+        {
+            "one": 1,
+            "two": 2,
+        }
+        "#;
+        let err = Value::parse(object).unwrap_err();
+        assert!(err.to_string().contains("trailing comma"));
+
+        let array = r#"
+        [
+            "one",
+            "two",
+        ]
+        "#;
+        let err = Value::parse(array).unwrap_err();
+        assert!(err.to_string().contains("trailing comma"));
     }
 }

@@ -1,5 +1,5 @@
 use super::{
-    error::{ParseNumberError, ParseStringError, Position, SequentialTokenError, SingleTokenError},
+    error::{ParseNumberError, ParseStringError, Position, SequentialTokenError, SingleTokenError, StructureError},
     lexer::SkipWs,
     token::ImmediateToken,
     Lexer, MainToken, NumberToken, SingleToken, StringToken,
@@ -61,12 +61,15 @@ impl<'a> Parser<'a> {
                 let key = self.parse_string().context("while parse object's key")?;
                 self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Colon).context("while parse object")?;
                 let value = self.parse_value().context("while parse object's value")?;
-
-                if !self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBrace) {
-                    self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Comma)?;
-                }
-
                 object.insert(key.into(), value);
+
+                if let Ok((p, _comma)) = self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Comma) {
+                    if self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBrace) {
+                        return Err(StructureError::TrailingComma { pos: p })?;
+                    }
+                }
+            } else {
+                break;
             }
         }
         self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::RightBrace)?;
@@ -80,12 +83,15 @@ impl<'a> Parser<'a> {
         let (_, _left_bracket) = self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::LeftBracket)?;
         while !self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBracket) {
             let value = self.parse_value()?;
-
-            if !self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBracket) {
-                self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Comma)?;
-            }
-
             array.push(value);
+
+            if let Ok((p, _comma)) = self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Comma) {
+                if self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBracket) {
+                    return Err(StructureError::TrailingComma { pos: p })?;
+                }
+            } else {
+                break;
+            }
         }
         self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::RightBracket)?;
         Ok(Value::Array(array))
