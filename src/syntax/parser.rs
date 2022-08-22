@@ -1,5 +1,6 @@
 use super::{
     error::{ParseNumberError, ParseStringError, Position, SequentialTokenError, SingleTokenError},
+    lexer::SkipWs,
     token::ImmediateToken,
     Lexer, MainToken, NumberToken, SingleToken, StringToken,
 };
@@ -54,21 +55,21 @@ impl<'a> Parser<'a> {
     /// `object` := "{" { `string` ":" `value` \[ "," \] }  "}"
     pub fn parse_object(&mut self) -> anyhow::Result<Value> {
         let mut object = HashMap::new();
-        let (_, _left_brace) = self.lexer.lex_1_char(MainToken::LeftBrace, true)?;
-        while !self.lexer.is_next(MainToken::RightBrace, true) {
-            if self.lexer.is_next(MainToken::Quotation, true) {
+        let (_, _left_brace) = self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::LeftBrace)?;
+        while !self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBrace) {
+            if self.lexer.is_next::<_, SkipWs<true>>(MainToken::Quotation) {
                 let key = self.parse_string().context("while parse object's key")?;
-                self.lexer.lex_1_char(MainToken::Colon, true).context("while parse object")?;
+                self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Colon).context("while parse object")?;
                 let value = self.parse_value().context("while parse object's value")?;
 
-                if !self.lexer.is_next(MainToken::RightBrace, true) {
-                    self.lexer.lex_1_char(MainToken::Comma, true)?;
+                if !self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBrace) {
+                    self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Comma)?;
                 }
 
                 object.insert(key.into(), value);
             }
         }
-        self.lexer.lex_1_char(MainToken::RightBrace, true)?;
+        self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::RightBrace)?;
         Ok(Value::Object(object))
     }
 
@@ -76,17 +77,17 @@ impl<'a> Parser<'a> {
     /// `array` := "\[" { `value` \[ "," \] }  "\]"
     pub fn parse_array(&mut self) -> anyhow::Result<Value> {
         let mut array = Vec::new();
-        let (_, _left_bracket) = self.lexer.lex_1_char(MainToken::LeftBracket, true)?;
-        while !self.lexer.is_next(MainToken::RightBracket, true) {
+        let (_, _left_bracket) = self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::LeftBracket)?;
+        while !self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBracket) {
             let value = self.parse_value()?;
 
-            if !self.lexer.is_next(MainToken::RightBracket, true) {
-                self.lexer.lex_1_char(MainToken::Comma, true)?;
+            if !self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBracket) {
+                self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Comma)?;
             }
 
             array.push(value);
         }
-        self.lexer.lex_1_char(MainToken::RightBracket, true)?;
+        self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::RightBracket)?;
         Ok(Value::Array(array))
     }
 
@@ -132,29 +133,29 @@ impl<'a> Parser<'a> {
     /// `string` := """ { `escape_sequence` | `char`  } """
     pub fn parse_string(&mut self) -> anyhow::Result<Value> {
         let mut string = String::new();
-        let (start, _quotation) = self.lexer.lex_1_char(StringToken::Quotation, false)?;
-        while !self.lexer.is_next(StringToken::Quotation, false) {
+        let (start, _quotation) = self.lexer.lex_1_char::<_, SkipWs<false>>(StringToken::Quotation)?;
+        while !self.lexer.is_next::<_, SkipWs<false>>(StringToken::Quotation) {
             let &(p, c) = self.lexer.peek().ok_or_else(|| {
                 let eof = self.lexer.json.eof();
                 ParseStringError::UnexpectedEof { comp: string.clone(), start, end: eof }
             })?;
             if c == '\n' {
                 return Err(ParseStringError::UnexpectedLinefeed { comp: string, start, end: p })?;
-            } else if self.lexer.is_next(StringToken::ReverseSolidus, false) {
+            } else if self.lexer.is_next::<_, SkipWs<false>>(StringToken::ReverseSolidus) {
                 string.push(self.parse_escape_sequence()?);
             } else {
                 string.push(c);
                 self.lexer.next();
             }
         }
-        self.lexer.lex_1_char(StringToken::Quotation, false)?;
+        self.lexer.lex_1_char::<_, SkipWs<false>>(StringToken::Quotation)?;
         Ok(Value::String(string))
     }
 
     /// parse `escape_sequence` of json. the following ebnf is not precise.<br>
     /// `escape_sequence` := "\\"" | "\\\\" | "\\/" | "\n" | "\r" | "\t" | `unicode`
     pub fn parse_escape_sequence(&mut self) -> anyhow::Result<char> {
-        let (start, reverse_solidus) = self.lexer.lex_1_char(StringToken::ReverseSolidus, false)?;
+        let (start, reverse_solidus) = self.lexer.lex_1_char::<_, SkipWs<false>>(StringToken::ReverseSolidus)?;
         let (p, escaped) = self
             .lexer
             .next()
@@ -201,10 +202,10 @@ impl<'a> Parser<'a> {
             let eof = self.lexer.json.eof();
             ParseNumberError::UnexpectedEof { num: number.clone(), start: eof, end: eof }
         })?;
-        if let Ok((_c, minus)) = self.lexer.lex_1_char(NumberToken::Minus, false) {
+        if let Ok((_c, minus)) = self.lexer.lex_1_char::<_, SkipWs<false>>(NumberToken::Minus) {
             number.push(minus);
         }
-        if let Ok((_, zero)) = self.lexer.lex_1_char(NumberToken::Zero, false) {
+        if let Ok((_, zero)) = self.lexer.lex_1_char::<_, SkipWs<false>>(NumberToken::Zero) {
             number.push(zero);
         } else {
             number.push_str(&self.parse_digits(start)?);
@@ -212,10 +213,10 @@ impl<'a> Parser<'a> {
 
         let &(_, c) = self.lexer.peek().unwrap_or(&(self.lexer.json.eof(), '\0'));
         if matches!(NumberToken::tokenize(c), NumberToken::Dot | NumberToken::Exponent) {
-            if self.lexer.is_next(NumberToken::Dot, false) {
+            if self.lexer.is_next::<_, SkipWs<false>>(NumberToken::Dot) {
                 number.push_str(&self.parse_fraction(start)?);
             }
-            if self.lexer.is_next(NumberToken::Exponent, false) {
+            if self.lexer.is_next::<_, SkipWs<false>>(NumberToken::Exponent) {
                 number.push_str(&self.parse_exponent(start)?);
             }
             let &(end, _) = self.lexer.peek().unwrap_or(&(self.lexer.json.eof(), '\0'));
@@ -261,7 +262,7 @@ impl<'a> Parser<'a> {
     /// `fraction_part` := "." `digits`
     pub fn parse_fraction(&mut self, start: Position) -> anyhow::Result<String> {
         let mut fraction_component = String::new();
-        let (_, dot) = self.lexer.lex_1_char(NumberToken::Dot, false)?;
+        let (_, dot) = self.lexer.lex_1_char::<_, SkipWs<false>>(NumberToken::Dot)?;
         fraction_component.push(dot);
         fraction_component.push_str(&self.parse_digits(start)?);
         Ok(fraction_component)
@@ -271,7 +272,7 @@ impl<'a> Parser<'a> {
     /// `exponent_part` := ("E" | "e") \[ "+" | "-" \] `digits`
     pub fn parse_exponent(&mut self, start: Position) -> anyhow::Result<String> {
         let mut exponent_component = String::new();
-        let (_, exponent) = self.lexer.lex_1_char(NumberToken::Exponent, false)?;
+        let (_, exponent) = self.lexer.lex_1_char::<_, SkipWs<false>>(NumberToken::Exponent)?;
         exponent_component.push(exponent);
         let &(pos, sign_or_digits) = self
             .lexer

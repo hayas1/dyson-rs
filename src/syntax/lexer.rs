@@ -57,8 +57,8 @@ impl<'a> Lexer<'a> {
 
     /// read next expected token. if `skip_ws`, this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
     /// if success, lexer cursor move to next, but if error, lexer cursor do not move next (skip whitespace only).
-    pub fn lex_1_char<T: 'static + SingleToken>(&mut self, token: T, skip_ws: bool) -> anyhow::Result<Nexted> {
-        if let Some(&(pos, c)) = if skip_ws { self.skip_whitespace() } else { self.peek() } {
+    pub fn lex_1_char<T: 'static + SingleToken, S: SkipWhiteSpace>(&mut self, token: T) -> anyhow::Result<Nexted> {
+        if let Some(&(pos, c)) = if S::skip_ws() { self.skip_whitespace() } else { self.peek() } {
             if T::tokenize(c) != token {
                 Err(SingleTokenError::UnexpectedToken { expected: vec![token], found: T::tokenize(c), pos })?
             } else {
@@ -113,10 +113,20 @@ impl<'a> Lexer<'a> {
     }
 
     /// peek next token is equal to expected token. if `skip_ws`, this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
-    pub fn is_next<T: SingleToken>(&mut self, token: T, skip_ws: bool) -> bool {
-        if skip_ws { self.skip_whitespace() } else { self.peek() }
+    pub fn is_next<T: SingleToken, S: SkipWhiteSpace>(&mut self, token: T) -> bool {
+        if S::skip_ws() { self.skip_whitespace() } else { self.peek() }
             .map(|&(_p, c)| T::tokenize(c) == token)
             .unwrap_or(false)
+    }
+}
+
+pub struct SkipWs<const B: bool>;
+pub trait SkipWhiteSpace {
+    fn skip_ws() -> bool;
+}
+impl<const B: bool> SkipWhiteSpace for SkipWs<B> {
+    fn skip_ws() -> bool {
+        B
     }
 }
 
@@ -174,32 +184,32 @@ mod tests {
     fn test_lex_1_char() {
         let json: RawJson = vec![" {", " ]"].into_iter().collect();
         let mut lexer = Lexer::new(&json);
-        let error = lexer.lex_1_char(MainToken::LeftBrace, false).unwrap_err();
+        let error = lexer.lex_1_char::<_, SkipWs<false>>(MainToken::LeftBrace).unwrap_err();
         println!("{}", error);
         assert!(error.to_string().contains(&postr(&(0, 0))));
         assert!(error.to_string().contains("Whitespace"));
         assert!(error.to_string().contains("LeftBrace"));
-        let ok = lexer.lex_1_char(MainToken::LeftBrace, true).unwrap();
+        let ok = lexer.lex_1_char::<_, SkipWs<true>>(MainToken::LeftBrace).unwrap();
         assert_eq!(ok, ((0, 1), '{'));
-        let error = lexer.lex_1_char(MainToken::RightBrace, true).unwrap_err();
+        let error = lexer.lex_1_char::<_, SkipWs<true>>(MainToken::RightBrace).unwrap_err();
         assert!(error.to_string().contains(&postr(&(1, 1))));
         assert!(error.to_string().contains('}'));
         assert!(error.to_string().contains(']'));
-        assert!(lexer.is_next(MainToken::RightBracket, true));
-        assert!(!lexer.is_next(MainToken::RightBrace, true));
-        let error = lexer.lex_1_char(MainToken::RightBrace, true).unwrap_err();
+        assert!(lexer.is_next::<_, SkipWs<true>>(MainToken::RightBracket));
+        assert!(!lexer.is_next::<_, SkipWs<true>>(MainToken::RightBrace));
+        let error = lexer.lex_1_char::<_, SkipWs<true>>(MainToken::RightBrace).unwrap_err();
         assert!(error.to_string().contains(&postr(&(1, 1))));
         assert!(error.to_string().contains('}'));
         assert!(error.to_string().contains(']'));
-        assert!(lexer.is_next(MainToken::RightBracket, true));
-        assert!(!lexer.is_next(MainToken::RightBrace, true));
-        let ok = lexer.lex_1_char(MainToken::RightBracket, true).unwrap();
+        assert!(lexer.is_next::<_, SkipWs<true>>(MainToken::RightBracket));
+        assert!(!lexer.is_next::<_, SkipWs<true>>(MainToken::RightBrace));
+        let ok = lexer.lex_1_char::<_, SkipWs<true>>(MainToken::RightBracket).unwrap();
         assert_eq!(ok, ((1, 1), ']'));
-        let error = lexer.lex_1_char(MainToken::RightBrace, true).unwrap_err();
+        let error = lexer.lex_1_char::<_, SkipWs<true>>(MainToken::RightBrace).unwrap_err();
         assert!(error.to_string().to_lowercase().contains("eof"));
         assert!(error.to_string().contains('}'));
-        assert!(!lexer.is_next(MainToken::RightBracket, true));
-        assert!(!lexer.is_next(MainToken::RightBrace, true));
+        assert!(!lexer.is_next::<_, SkipWs<true>>(MainToken::RightBracket));
+        assert!(!lexer.is_next::<_, SkipWs<true>>(MainToken::RightBrace));
     }
 
     #[test]
