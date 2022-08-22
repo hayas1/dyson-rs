@@ -47,6 +47,9 @@ pub enum ParseTokenError {
 pub enum StructureError {
     #[error("{}: trailing comma is not allowed in json", postr(pos))]
     TrailingComma { pos: Position },
+
+    #[error("{} - {}: found surplus token previous EOF", postr(start), postr(end))]
+    FoundSurplus { start: Position, end: Position },
 }
 
 #[derive(Error, Debug)]
@@ -63,7 +66,7 @@ pub enum ParseStringError {
     #[error("{} - {}: {} cannot be converted into unicode", postr(start), postr(end), uc)]
     CannotConvertUnicode { uc: String, start: Position, end: Position },
 
-    #[error("{} - {}: unexpected escape sequence {:?}", postr(start), postr(end), escape)]
+    #[error("{} - {}: unexpected escape sequence \"\\{}\"", postr(start), postr(end), escape)]
     UnexpectedEscapeSequence { escape: StringToken, start: Position, end: Position },
 }
 
@@ -117,5 +120,42 @@ mod tests {
         "#;
         let err = Value::parse(array).unwrap_err();
         assert!(err.to_string().contains("trailing comma"));
+    }
+
+    #[test]
+    fn test_invalid_string() {
+        let open = "\"not closed string";
+        let err = Value::parse(open).unwrap_err();
+        assert!(err.to_string().contains("cannot close string"));
+
+        let invalid_es = "\"\\d mean digit\"";
+        let err = Value::parse(invalid_es).unwrap_err();
+        assert!(err.to_string().contains("unexpected escape sequence"));
+        assert!(err.to_string().contains("\\d"));
+
+        let unsupported_es = "\"formfeed \\f is not supported\"";
+        let err = Value::parse(unsupported_es).unwrap_err();
+        assert!(err.to_string().contains("unsupported"));
+        assert!(err.to_string().to_lowercase().contains("formfeed"));
+        assert!(err.to_string().contains("\\f"));
+    }
+
+    #[test]
+    fn test_invalid_number() {
+        let prefix_plus = "+123";
+        let err = Value::parse(prefix_plus).unwrap_err();
+        assert!(err.to_string().contains('+'));
+
+        let dot2 = "1.2.3";
+        let err = Value::parse(dot2).unwrap_err();
+        assert!(err.to_string().contains("found"));
+
+        let ee = "1eE5";
+        let err = Value::parse(ee).unwrap_err();
+        assert!(err.to_string().to_lowercase().contains("exponent"));
+
+        let overflow = "999999999999999999999999999999999999999999999999999999999999";
+        let err = Value::parse(overflow).unwrap_err();
+        assert!(err.to_string().contains("maybe valid number"));
     }
 }
