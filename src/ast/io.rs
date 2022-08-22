@@ -154,7 +154,7 @@ impl Value {
 ///
 /// default is `Indent<1>`, so `Indent` mean `Indent<1>`.
 /// see [`Value::write_with`] and [`Value::dump_with`] also.
-pub struct Indent<const N: u8 = 1>();
+pub struct Indent<const N: u8 = 1>;
 pub trait JsonFormatter {
     fn format(value: &Value) -> String;
 }
