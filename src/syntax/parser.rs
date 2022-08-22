@@ -1,10 +1,10 @@
 use super::{
-    error::{postr, ParseNumberError, ParseStringError, Position, SequentialTokenError, SingleTokenError},
+    error::{ParseNumberError, ParseStringError, Position, SequentialTokenError, SingleTokenError},
     token::ImmediateToken,
     Lexer, MainToken, NumberToken, SingleToken, StringToken,
 };
 use crate::{ast::Value, rawjson::RawJson};
-use anyhow::{ensure, Context as _};
+use anyhow::Context as _;
 use std::collections::HashMap;
 
 pub struct Parser<'a> {
@@ -54,19 +54,15 @@ impl<'a> Parser<'a> {
     /// `object` := "{" { `string` ":" `value` \[ "," \] }  "}"
     pub fn parse_object(&mut self) -> anyhow::Result<Value> {
         let mut object = HashMap::new();
-        let (pos, _left_brace) = self.lexer.lex_1_char(MainToken::LeftBrace, true)?;
+        let (_, _left_brace) = self.lexer.lex_1_char(MainToken::LeftBrace, true)?;
         while !self.lexer.is_next(MainToken::RightBrace, true) {
             if self.lexer.is_next(MainToken::Quotation, true) {
                 let key = self.parse_string().context("while parse object's key")?;
                 self.lexer.lex_1_char(MainToken::Colon, true).context("while parse object")?;
                 let value = self.parse_value().context("while parse object's value")?;
 
-                // FIXME trailing comma and missing comma
-                let is_object_end = self.lexer.is_next(MainToken::RightBrace, true);
-                if let Ok((p, _comma)) = self.lexer.lex_1_char(MainToken::Comma, true) {
-                    ensure!(!is_object_end, "{}: trailing comma", postr(&p));
-                } else {
-                    ensure!(is_object_end, "{}: object should be end with '}}'", postr(&pos));
+                if !self.lexer.is_next(MainToken::RightBrace, true) {
+                    self.lexer.lex_1_char(MainToken::Comma, true)?;
                 }
 
                 object.insert(key.into(), value);
@@ -80,16 +76,12 @@ impl<'a> Parser<'a> {
     /// `array` := "\[" { `value` \[ "," \] }  "\]"
     pub fn parse_array(&mut self) -> anyhow::Result<Value> {
         let mut array = Vec::new();
-        let (pos, _left_bracket) = self.lexer.lex_1_char(MainToken::LeftBracket, true)?;
+        let (_, _left_bracket) = self.lexer.lex_1_char(MainToken::LeftBracket, true)?;
         while !self.lexer.is_next(MainToken::RightBracket, true) {
             let value = self.parse_value()?;
 
-            // FIXME trailing comma and missing comma
-            let is_array_end = self.lexer.is_next(MainToken::RightBracket, true);
-            if let Ok((p, _comma)) = self.lexer.lex_1_char(MainToken::Comma, true) {
-                ensure!(!is_array_end, "{}: trailing comma", postr(&p));
-            } else {
-                ensure!(is_array_end, "{}: array should be end with ']'", postr(&pos));
+            if !self.lexer.is_next(MainToken::RightBracket, true) {
+                self.lexer.lex_1_char(MainToken::Comma, true)?;
             }
 
             array.push(value);
