@@ -138,6 +138,16 @@ mod tests {
         assert!(err.to_string().contains("unsupported"));
         assert!(err.to_string().to_lowercase().contains("formfeed"));
         assert!(err.to_string().contains("\\f"));
+
+        let quotation = r#"
+        {
+            "one": 1,
+            "two": "three"four",
+        }"#;
+        let err = Value::parse(quotation).unwrap_err();
+        // println!("{err}"); // this is not good message
+        assert!(err.to_string().contains('}'));
+        assert!(err.to_string().contains(','));
     }
 
     #[test]
@@ -157,5 +167,18 @@ mod tests {
         let overflow = "999999999999999999999999999999999999999999999999999999999999";
         let err = Value::parse(overflow).unwrap_err();
         assert!(err.to_string().contains("maybe valid number"));
+    }
+
+    #[test]
+    fn test_invalid_json() {
+        let rs = r#"
+        {
+            1: "one",
+            2: "two",
+        }"#;
+        let err = Value::parse(rs).unwrap_err();
+        // println!("{err}"); // this is not good message
+        assert!(err.to_string().contains('}'));
+        assert!(err.to_string().contains(','));
     }
 }
