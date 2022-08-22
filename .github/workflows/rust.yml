@@ -33,6 +33,7 @@ jobs:
 
   deploy:
      needs: doc
+     if: github.event_name == 'push'
      permissions:
        pages: write
        id-token: write
