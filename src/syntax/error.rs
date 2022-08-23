@@ -174,11 +174,23 @@ mod tests {
         let rs = r#"
         {
             1: "one",
-            2: "two",
+            2: "two"
         }"#;
         let err = Value::parse(rs).unwrap_err();
         // println!("{err}"); // this is not good message
         assert!(err.to_string().contains('}'));
         assert!(err.to_string().contains(','));
+    }
+
+    #[test]
+    fn test_surplus_json() {
+        let rs = r#"
+        {
+            "one": 1,
+            "two": 2
+        }, "this is text"#;
+        let err = Value::parse(rs).unwrap_err();
+        println!("{err}");
+        assert!(err.to_string().contains("surplus"));
     }
 }
