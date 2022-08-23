@@ -1,10 +1,15 @@
-use super::{token::ImmediateToken, Lexer, MainToken, NumberToken, SingleToken, StringToken};
-use crate::{ast::Value, postr, rawjson::RawJson};
-use anyhow::{anyhow, bail, ensure, Context as _};
+use super::{
+    error::{ParseNumberError, ParseStringError, Position, SequentialTokenError, SingleTokenError, StructureError},
+    lexer::SkipWs,
+    token::ImmediateToken,
+    Lexer, MainToken, NumberToken, SingleToken, StringToken,
+};
+use crate::{ast::Value, rawjson::RawJson};
+use anyhow::Context as _;
 use std::collections::HashMap;
 
 pub struct Parser<'a> {
-    lexer: Lexer<'a>,
+    pub(crate) lexer: Lexer<'a>,
 }
 
 impl<'a> Parser<'a> {
@@ -16,23 +21,33 @@ impl<'a> Parser<'a> {
     /// parse `value` of json. the following ebnf is not precise.<br>
     /// `value` := `object` | `array` | `bool` | `null` | `string` | `number`;
     pub fn parse_value(&mut self) -> anyhow::Result<Value> {
-        let &(pos, c) = self.lexer.skip_whitespace().ok_or_else(|| anyhow!("unexpected EOF, start parse value"))?;
-
-        let tokenized = MainToken::tokenize(c);
-        if matches!(tokenized, MainToken::LeftBrace) {
-            self.parse_object()
-        } else if matches!(tokenized, MainToken::LeftBracket) {
-            self.parse_array()
-        } else if matches!(tokenized, MainToken::Undecided('t') | MainToken::Undecided('f')) {
-            self.parse_bool()
-        } else if matches!(tokenized, MainToken::Undecided('n')) {
-            self.parse_null()
-        } else if matches!(tokenized, MainToken::Quotation) {
-            self.parse_string()
-        } else if matches!(tokenized, MainToken::Minus | MainToken::Digit(_)) {
-            self.parse_number()
+        let expected = || {
+            let mut expected = vec![MainToken::LeftBrace, MainToken::LeftBracket];
+            expected.append(&mut vec![MainToken::Undecided('t'), MainToken::Undecided('f'), MainToken::Undecided('n')]);
+            expected.append(&mut vec![MainToken::Quotation, MainToken::Minus]);
+            expected.append(&mut ('0'..='9').map(MainToken::tokenize).collect());
+            expected
+        };
+        if let Some(&(pos, c)) = self.lexer.skip_whitespace() {
+            let tokenized = MainToken::tokenize(c);
+            if matches!(tokenized, MainToken::LeftBrace) {
+                self.parse_object()
+            } else if matches!(tokenized, MainToken::LeftBracket) {
+                self.parse_array()
+            } else if matches!(tokenized, MainToken::Undecided('t') | MainToken::Undecided('f')) {
+                self.parse_bool()
+            } else if matches!(tokenized, MainToken::Undecided('n')) {
+                self.parse_null()
+            } else if matches!(tokenized, MainToken::Quotation) {
+                self.parse_string()
+            } else if matches!(tokenized, MainToken::Minus | MainToken::Digit(_)) {
+                self.parse_number()
+            } else {
+                Err(SingleTokenError::UnexpectedToken { expected: expected(), found: tokenized, pos })?
+            }
         } else {
-            bail!("{}: unexpected token \"{c}\", while parse value", postr(pos))
+            let eof = self.lexer.json.eof();
+            Err(SingleTokenError::UnexpectedEof { expected: expected(), pos: eof })?
         }
     }
 
@@ -40,25 +55,24 @@ impl<'a> Parser<'a> {
     /// `object` := "{" { `string` ":" `value` \[ "," \] }  "}"
     pub fn parse_object(&mut self) -> anyhow::Result<Value> {
         let mut object = HashMap::new();
-        let (pos, _left_brace) = self.lexer.lex_1_char(MainToken::LeftBrace, true)?;
-        while !self.lexer.is_next(MainToken::RightBrace, true) {
-            if self.lexer.is_next(MainToken::Quotation, true) {
-                let key = self.parse_string().context("while parse object's key")?;
-                self.lexer.lex_1_char(MainToken::Colon, true).context("while parse object")?;
-                let value = self.parse_value().context("while parse object's value")?;
-
-                // FIXME trailing comma and missing comma
-                let is_object_end = self.lexer.is_next(MainToken::RightBrace, true);
-                if let Ok((p, _comma)) = self.lexer.lex_1_char(MainToken::Comma, true) {
-                    ensure!(!is_object_end, "{}: trailing comma", postr(p));
-                } else {
-                    ensure!(is_object_end, "{}: object should be end with '}}'", postr(pos));
-                }
-
+        let (_, _left_brace) = self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::LeftBrace)?;
+        while !self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBrace) {
+            if self.lexer.is_next::<_, SkipWs<true>>(MainToken::Quotation) {
+                let key = self.parse_string()?;
+                self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Colon)?;
+                let value = self.parse_value()?;
                 object.insert(key.into(), value);
+
+                if let Ok((p, _comma)) = self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Comma) {
+                    if self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBrace) {
+                        return Err(StructureError::TrailingComma { pos: p })?;
+                    }
+                }
+            } else {
+                break;
             }
         }
-        self.lexer.lex_1_char(MainToken::RightBrace, true)?;
+        self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::RightBrace)?;
         Ok(Value::Object(object))
     }
 
@@ -66,28 +80,31 @@ impl<'a> Parser<'a> {
     /// `array` := "\[" { `value` \[ "," \] }  "\]"
     pub fn parse_array(&mut self) -> anyhow::Result<Value> {
         let mut array = Vec::new();
-        let (pos, _left_bracket) = self.lexer.lex_1_char(MainToken::LeftBracket, true)?;
-        while !self.lexer.is_next(MainToken::RightBracket, true) {
+        let (_, _left_bracket) = self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::LeftBracket)?;
+        while !self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBracket) {
             let value = self.parse_value()?;
-
-            // FIXME trailing comma and missing comma
-            let is_array_end = self.lexer.is_next(MainToken::RightBracket, true);
-            if let Ok((p, _comma)) = self.lexer.lex_1_char(MainToken::Comma, true) {
-                ensure!(!is_array_end, "{}: trailing comma", postr(p));
-            } else {
-                ensure!(is_array_end, "{}: array should be end with ']'", postr(pos));
-            }
-
             array.push(value);
+
+            if let Ok((p, _comma)) = self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Comma) {
+                if self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBracket) {
+                    return Err(StructureError::TrailingComma { pos: p })?;
+                }
+            } else {
+                break;
+            }
         }
-        self.lexer.lex_1_char(MainToken::RightBracket, true)?;
+        self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::RightBracket)?;
         Ok(Value::Array(array))
     }
 
     /// parse `bool` of json. the following ebnf is not precise.<br>
     /// `bool` := "true" | "false"
     pub fn parse_bool(&mut self) -> anyhow::Result<Value> {
-        let &(pos, tf) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, start parse bool"))?;
+        let expected = || vec![ImmediateToken::True, ImmediateToken::False];
+        let &(pos, tf) = self.lexer.peek().ok_or_else(|| {
+            let eof = self.lexer.json.eof();
+            SequentialTokenError::UnexpectedEof { expected: expected(), start: eof, end: eof }
+        })?;
         match ImmediateToken::tokenize(tf) {
             ImmediateToken::Undecided('t') => {
                 self.lexer.lex_expected(ImmediateToken::True)?;
@@ -97,20 +114,24 @@ impl<'a> Parser<'a> {
                 self.lexer.lex_expected(ImmediateToken::False)?;
                 Ok(Value::Bool(false))
             }
-            _ => bail!("{}: no bool immediate start with '{tf}'", postr(pos)),
+            bl => Err(SingleTokenError::UnexpectedToken { expected: expected(), found: bl, pos })?,
         }
     }
 
     /// parse `null` of json. the following ebnf is not precise.<br>
     /// `null` := "null"
     pub fn parse_null(&mut self) -> anyhow::Result<Value> {
-        let &(pos, n) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, start parse null"))?;
+        let expected = || vec![ImmediateToken::Null];
+        let &(pos, n) = self.lexer.peek().ok_or_else(|| {
+            let eof = self.lexer.json.eof();
+            SequentialTokenError::UnexpectedEof { expected: expected(), start: eof, end: eof }
+        })?;
         match ImmediateToken::tokenize(n) {
             ImmediateToken::Undecided('n') => {
                 self.lexer.lex_expected(ImmediateToken::Null)?;
                 Ok(Value::Null)
             }
-            _ => bail!("{}: no null immediate start with '{}'", postr(pos), n),
+            nl => Err(SingleTokenError::UnexpectedToken { expected: expected(), found: nl, pos })?,
         }
     }
 
@@ -118,114 +139,145 @@ impl<'a> Parser<'a> {
     /// `string` := """ { `escape_sequence` | `char`  } """
     pub fn parse_string(&mut self) -> anyhow::Result<Value> {
         let mut string = String::new();
-        let ((row, col), _quotation) = self.lexer.lex_1_char(StringToken::Quotation, false)?;
-        while !self.lexer.is_next(StringToken::Quotation, false) {
-            let &(_, c) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, while parse string"))?;
+        let (start, _quotation) = self.lexer.lex_1_char::<_, SkipWs<false>>(StringToken::Quotation)?;
+        while !self.lexer.is_next::<_, SkipWs<false>>(StringToken::Quotation) {
+            let &(p, c) = self.lexer.peek().ok_or_else(|| {
+                let eof = self.lexer.json.eof();
+                ParseStringError::UnexpectedEof { comp: string.clone(), start, end: eof }
+            })?;
             if c == '\n' {
-                bail!("{}: open string literal, must be closed by '\"'", postr((row, col)));
-            } else if self.lexer.is_next(StringToken::ReverseSolidus, false) {
+                return Err(ParseStringError::UnexpectedLinefeed { comp: string, start, end: p })?;
+            } else if self.lexer.is_next::<_, SkipWs<false>>(StringToken::ReverseSolidus) {
                 string.push(self.parse_escape_sequence()?);
             } else {
                 string.push(c);
                 self.lexer.next();
             }
         }
-        self.lexer.lex_1_char(StringToken::Quotation, false)?;
+        self.lexer.lex_1_char::<_, SkipWs<false>>(StringToken::Quotation)?;
         Ok(Value::String(string))
     }
 
     /// parse `escape_sequence` of json. the following ebnf is not precise.<br>
-    /// `escape_sequence` := "\\"" | "\\\\" | "\\/" | "\n" | "\r" | "\t" | "\u" `hex4digits`
+    /// `escape_sequence` := "\\"" | "\\\\" | "\\/" | "\n" | "\r" | "\t" | `unicode`
     pub fn parse_escape_sequence(&mut self) -> anyhow::Result<char> {
-        let (p, _reverse_solidus) = self.lexer.lex_1_char(StringToken::ReverseSolidus, false)?;
-        let (_, escape) = self.lexer.next().ok_or_else(|| anyhow!("unexpected EOF, while parse escape"))?;
-        // FIXME better match case
-        match StringToken::tokenize(escape) {
+        let (start, reverse_solidus) = self.lexer.lex_1_char::<_, SkipWs<false>>(StringToken::ReverseSolidus)?;
+        let (p, escaped) = self.lexer.next().ok_or_else(|| {
+            let eof = self.lexer.json.eof();
+            ParseStringError::UnexpectedEof { comp: reverse_solidus.to_string(), start, end: eof }
+        })?;
+        let tokenized = StringToken::tokenize(escaped);
+        match tokenized {
             StringToken::Quotation => Ok('"'),
             StringToken::ReverseSolidus => Ok('\\'),
             StringToken::Solidus => Ok('/'),
-            StringToken::Backspace => bail!("{}: unsupported {} in Rust", StringToken::Backspace, postr(p)),
-            StringToken::Formfeed => bail!("{}: unsupported {} in Rust", StringToken::Formfeed, postr(p)),
+            StringToken::Backspace | StringToken::Formfeed => {
+                Err(ParseStringError::UnsupportedEscapeSequence { escape: tokenized, start, end: p })?
+            }
             StringToken::Linefeed => Ok('\n'),
             StringToken::CarriageReturn => Ok('\r'),
             StringToken::HorizontalTab => Ok('\t'),
-            StringToken::Unicode => {
-                let (hex4digits, _) = self.lexer.lex_n_chars(4)?;
-                char::from_u32(u32::from_str_radix(&hex4digits, 16)?)
-                    .ok_or_else(|| anyhow!("{}: cannot \\{hex4digits} convert to unicode", postr(p)))
-            }
-            StringToken::Hex4Digits(s) => bail!("{}: unexpected escape sequence{}", postr(p), s),
-            StringToken::Undecided(c) => bail!("{}: unexpected escape sequence{}", postr(p), c),
-            StringToken::Unexpected(s) => bail!("{}: unexpected escape sequence{}", postr(p), s),
+            StringToken::Unicode => self.parse_unicode(start),
+            _ => Err(ParseStringError::UnexpectedEscapeSequence { escape: tokenized, start, end: p })?,
         }
+    }
+
+    /// parse `unicode` of json. the following ebnf is not precise.<br>
+    /// `unicode` := "\u" `hex4digits`
+    pub fn parse_unicode(&mut self, start: Position) -> anyhow::Result<char> {
+        let (hex4, nexted) = self.lexer.lex_n_chars(4)?;
+        let (p, _) = nexted.ok_or_else(|| {
+            let eof = self.lexer.json.eof();
+            ParseStringError::UnexpectedEof { comp: hex4.clone(), start, end: eof }
+        })?;
+        let uc = char::from_u32(u32::from_str_radix(&hex4, 16)?);
+        Ok(uc.ok_or_else(|| ParseStringError::CannotConvertUnicode { uc: hex4, start, end: p })?)
     }
 
     /// parse `number` of json. the following ebnf is not precise.<br>
     /// `number` := \[ "-" \] `digits` \[ \[ `fraction_part` \] \[`exponent_part` \] \]
     pub fn parse_number(&mut self) -> anyhow::Result<Value> {
         let mut number = String::new();
-        let &((row, col), _) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, while parse escape"))?;
-        if let Ok((_c, minus)) = self.lexer.lex_1_char(NumberToken::Minus, false) {
+        let &(start, _) = self.lexer.peek().ok_or_else(|| {
+            let eof = self.lexer.json.eof();
+            ParseNumberError::UnexpectedEof { num: number.clone(), start: eof, end: eof }
+        })?;
+        if let Ok((_c, minus)) = self.lexer.lex_1_char::<_, SkipWs<false>>(NumberToken::Minus) {
             number.push(minus);
         }
-        if let Ok((_, zero)) = self.lexer.lex_1_char(NumberToken::Zero, false) {
+        if let Ok((_, zero)) = self.lexer.lex_1_char::<_, SkipWs<false>>(NumberToken::Zero) {
             number.push(zero);
         } else {
-            number.push_str(&self.parse_digits((row, col))?);
+            number.push_str(&self.parse_digits(start)?);
         }
-        let &(_, c) = self.lexer.peek().unwrap_or(&((self.lexer.json.rows(), 0), '\0'));
+
+        let &(_, c) = self.lexer.peek().unwrap_or(&(self.lexer.json.eof(), '\0'));
         if matches!(NumberToken::tokenize(c), NumberToken::Dot | NumberToken::Exponent) {
-            if self.lexer.is_next(NumberToken::Dot, false) {
-                number.push_str(&self.parse_fraction((row, col))?);
+            if self.lexer.is_next::<_, SkipWs<false>>(NumberToken::Dot) {
+                number.push_str(&self.parse_fraction(start)?);
             }
-            if self.lexer.is_next(NumberToken::Exponent, false) {
-                number.push_str(&self.parse_exponent((row, col))?);
+            if self.lexer.is_next::<_, SkipWs<false>>(NumberToken::Exponent) {
+                number.push_str(&self.parse_exponent(start)?);
             }
-            Ok(Value::Float(
-                number.parse().with_context(|| format!("{number} maybe valid number, but cannot convert to f64"))?,
-            ))
+            let &(end, _) = self.lexer.peek().unwrap_or(&(self.lexer.json.eof(), '\0'));
+            Ok(Value::Float(number.parse().with_context(|| ParseNumberError::CannotConvertF64 {
+                num: number,
+                start,
+                end,
+            })?))
         } else {
-            Ok(Value::Integer(
-                number.parse().with_context(|| format!("{number} maybe valid number, but cannot convert to i64"))?,
-            ))
+            let eof = self.lexer.json.eof();
+            let &(end, _) = self.lexer.peek().unwrap_or(&(eof, '\0'));
+            Ok(Value::Integer(number.parse().with_context(|| ParseNumberError::CannotConvertI64 {
+                num: number,
+                start,
+                end,
+            })?))
         }
     }
 
     /// parse `digits` of json. the following ebnf is not precise.<br>
     /// `digits` := { "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" }
-    fn parse_digits(&mut self, (start_row, start_col): (usize, usize)) -> anyhow::Result<String> {
+    fn parse_digits(&mut self, start: Position) -> anyhow::Result<String> {
         let mut digits = String::new();
         while let Some(&(_, c)) = self.lexer.peek() {
             if matches!(NumberToken::tokenize(c), NumberToken::Zero | NumberToken::OneNine(_)) {
                 let (_, digit) =
                     self.lexer.next().unwrap_or_else(|| unreachable!("previous peek ensure this next success"));
                 digits.push(digit)
+            } else if digits.is_empty() {
+                return Err(ParseNumberError::EmptyDigits { pos: start })?;
             } else {
-                ensure!(!digits.is_empty(), "{}: empty digits is invalid in json", postr((start_row, start_col)));
                 return Ok(digits);
             }
         }
-        ensure!(!digits.is_empty(), "{}: empty digits is invalid in json", postr((start_row, start_col)));
-        Ok(digits)
+        if digits.is_empty() {
+            Err(ParseNumberError::EmptyDigits { pos: start })?
+        } else {
+            Ok(digits)
+        }
     }
 
     /// parse `fraction_part` of json. the following ebnf is not precise.<br>
     /// `fraction_part` := "." `digits`
-    pub fn parse_fraction(&mut self, (start_row, start_col): (usize, usize)) -> anyhow::Result<String> {
+    pub fn parse_fraction(&mut self, start: Position) -> anyhow::Result<String> {
         let mut fraction_component = String::new();
-        let (_, dot) = self.lexer.lex_1_char(NumberToken::Dot, false)?;
+        let (_, dot) = self.lexer.lex_1_char::<_, SkipWs<false>>(NumberToken::Dot)?;
         fraction_component.push(dot);
-        fraction_component.push_str(&self.parse_digits((start_row, start_col))?);
+        fraction_component.push_str(&self.parse_digits(start)?);
         Ok(fraction_component)
     }
 
     /// parse `exponent_part` of json. the following ebnf is not precise.<br>
     /// `exponent_part` := ("E" | "e") \[ "+" | "-" \] `digits`
-    pub fn parse_exponent(&mut self, (start_row, start_col): (usize, usize)) -> anyhow::Result<String> {
+    pub fn parse_exponent(&mut self, start: Position) -> anyhow::Result<String> {
         let mut exponent_component = String::new();
-        let (_, exponent) = self.lexer.lex_1_char(NumberToken::Exponent, false)?;
+        let (_, exponent) = self.lexer.lex_1_char::<_, SkipWs<false>>(NumberToken::Exponent)?;
         exponent_component.push(exponent);
-        let &(_, sign_or_digits) = self.lexer.peek().ok_or_else(|| anyhow!("unexpected EOF, while parse exponent"))?;
+        let &(pos, sign_or_digits) = self.lexer.peek().ok_or_else(|| {
+            let eof = self.lexer.json.eof();
+            ParseNumberError::UnexpectedEof { num: exponent_component.clone(), start, end: eof }
+        })?;
         match NumberToken::tokenize(sign_or_digits) {
             NumberToken::Plus | NumberToken::Minus => {
                 let (_, sign) =
@@ -233,9 +285,13 @@ impl<'a> Parser<'a> {
                 exponent_component.push(sign)
             }
             NumberToken::Zero | NumberToken::OneNine(_) => (),
-            _ => bail!("{}: unexpected '{sign_or_digits}', but expected sign or digit", postr((start_row, start_col))),
+            sd => {
+                let mut expected = vec![NumberToken::Plus, NumberToken::Minus];
+                expected.append(&mut ('0'..='9').map(NumberToken::tokenize).collect());
+                return Err(SingleTokenError::UnexpectedToken { expected, found: sd, pos })?;
+            }
         }
-        exponent_component.push_str(&self.parse_digits((start_row, start_col))?);
+        exponent_component.push_str(&self.parse_digits(start)?);
         Ok(exponent_component)
     }
 }
