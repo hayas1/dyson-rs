@@ -190,7 +190,6 @@ mod tests {
             "two": 2
         }, "this is text"#;
         let err = Value::parse(rs).unwrap_err();
-        println!("{err}");
         assert!(err.to_string().contains("surplus"));
     }
 }
