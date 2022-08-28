@@ -1,5 +1,8 @@
 use super::{
-    error::{ParseNumberError, ParseStringError, Position, SequentialTokenError, SingleTokenError, StructureError},
+    error::{
+        ParseNumberError, ParseStringError, ParseValueError, Position, SequentialTokenError, SingleTokenError,
+        StructureError,
+    },
     lexer::SkipWs,
     token::ImmediateToken,
     Lexer, MainToken, NumberToken, SingleToken, StringToken,
@@ -21,13 +24,7 @@ impl<'a> Parser<'a> {
     /// parse `value` of json. the following ebnf is not precise.<br>
     /// `value` := `object` | `array` | `bool` | `null` | `string` | `number`;
     pub fn parse_value(&mut self) -> anyhow::Result<Value> {
-        let expected = || {
-            let mut expected = vec![MainToken::LeftBrace, MainToken::LeftBracket];
-            expected.append(&mut vec![MainToken::Undecided('t'), MainToken::Undecided('f'), MainToken::Undecided('n')]);
-            expected.append(&mut vec![MainToken::Quotation, MainToken::Minus]);
-            expected.append(&mut ('0'..='9').map(MainToken::tokenize).collect());
-            expected
-        };
+        let examples = || vec![MainToken::LeftBrace, MainToken::Undecided('t'), MainToken::Digit('0')];
         if let Some(&(pos, c)) = self.lexer.skip_whitespace() {
             let tokenized = MainToken::tokenize(c);
             if matches!(tokenized, MainToken::LeftBrace) {
@@ -43,11 +40,11 @@ impl<'a> Parser<'a> {
             } else if matches!(tokenized, MainToken::Minus | MainToken::Digit(_)) {
                 self.parse_number()
             } else {
-                Err(SingleTokenError::UnexpectedToken { expected: expected(), found: tokenized, pos })?
+                Err(ParseValueError::CannotStartParseValue { examples: examples(), found: tokenized, pos })?
             }
         } else {
             let eof = self.lexer.json.eof();
-            Err(SingleTokenError::UnexpectedEof { expected: expected(), pos: eof })?
+            Err(ParseValueError::UnexpectedEof { examples: examples(), pos: eof })?
         }
     }
 

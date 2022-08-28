@@ -53,6 +53,19 @@ pub enum StructureError {
 }
 
 #[derive(Error, Debug)]
+pub enum ParseValueError<T: SingleToken> {
+    #[error(
+        "{}: expected leading value token such as {}, but found {:?}",
+        postr(pos),
+        join_token(examples, " or "),
+        found
+    )]
+    CannotStartParseValue { examples: Vec<T>, found: T, pos: Position },
+    #[error("{}: expected leading value token such as {}, but found EOF", postr(pos), join_token(examples, " or "))]
+    UnexpectedEof { examples: Vec<T>, pos: Position },
+}
+
+#[derive(Error, Debug)]
 pub enum ParseStringError {
     #[error("{} - {}: unexpected Linefeed, cannot close string literal \"{}\"", postr(start), postr(end), comp)]
     UnexpectedLinefeed { comp: String, start: Position, end: Position },
@@ -191,5 +204,12 @@ mod tests {
         }, "this is text"#;
         let err = Value::parse(rs).unwrap_err();
         assert!(err.to_string().contains("surplus"));
+    }
+
+    #[test]
+    fn test_invalid_value() {
+        let rs = "invalid json";
+        let err = Value::parse(rs).unwrap_err();
+        assert!(err.to_string().contains("value"));
     }
 }
