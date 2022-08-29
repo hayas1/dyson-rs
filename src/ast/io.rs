@@ -248,4 +248,41 @@ mod tests {
         }();
         assert!(result.is_ok());
     }
+
+    #[test]
+    fn test_json_to_same_string() {
+        let json: RawJson = [
+            r#"{"#,
+            r#"    "language": "rust","#,
+            r#"    "notation": "json","#,
+            r#"    "version": 0.1,"#,
+            r#"    "keyword": ["rust", "json", "parser"],"#,
+            r#"    "dict": {"one": 1, "two": 2, "three": 3}"#,
+            r#"}"#,
+        ]
+        .into_iter()
+        .collect();
+        let ast_root = Value::parse(json).unwrap();
+        assert_eq!(ast_root.to_string(), ast_root.to_string());
+        assert_eq!(ast_root.to_string(), ast_root.to_string());
+        assert_eq!(ast_root.to_string(), ast_root.to_string());
+        assert_eq!(ast_root.to_string(), ast_root.to_string());
+        assert_eq!(ast_root.to_string(), ast_root.to_string());
+        assert_eq!(ast_root.to_string(), ast_root.to_string());
+        assert_eq!(ast_root.to_string(), ast_root.to_string());
+        assert_eq!(ast_root.to_string(), ast_root.to_string());
+        assert_eq!(ast_root.to_string(), ast_root.to_string());
+        assert_eq!(ast_root.to_string(), ast_root.to_string());
+        assert_eq!(ast_root.stringify(), ast_root.stringify());
+        assert_eq!(ast_root.stringify(), ast_root.stringify());
+        assert_eq!(ast_root.stringify(), ast_root.stringify());
+        assert_eq!(ast_root.stringify(), ast_root.stringify());
+        assert_eq!(ast_root.stringify(), ast_root.stringify());
+        assert_eq!(ast_root.stringify(), ast_root.stringify());
+        assert_eq!(ast_root.stringify(), ast_root.stringify());
+        assert_eq!(ast_root.stringify(), ast_root.stringify());
+        assert_eq!(ast_root.stringify(), ast_root.stringify());
+        assert_eq!(ast_root.stringify(), ast_root.stringify());
+        println!("{}", ast_root);
+    }
 }

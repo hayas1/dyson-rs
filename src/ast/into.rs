@@ -1,26 +1,26 @@
 use super::Value;
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
-/// evaluate `Value` to corresponded object such as `HashMap`, `Vec`, `bool`, `str`, `i64`, or `f64`.
+/// evaluate `Value` to corresponded object such as `IndexMap`, `Vec`, `bool`, `str`, `i64`, or `f64`.
 /// # panics
 /// call different type evaluate method cause panic.
 /// for example, if call [`Value::object`] to [`Value::Array`], it will panic.
 /// if want to get `None` instead of panic, use `get_` prefixed methods.
 impl Value {
-    pub fn get_object(&self) -> Option<&HashMap<String, Value>> {
+    pub fn get_object(&self) -> Option<&IndexMap<String, Value>> {
         match self {
             Value::Object(m) => Some(m),
             _ => None,
         }
     }
-    pub fn get_mut_object(&mut self) -> Option<&mut HashMap<String, Value>> {
+    pub fn get_mut_object(&mut self) -> Option<&mut IndexMap<String, Value>> {
         match self {
             Value::Object(m) => Some(m),
             _ => None,
         }
     }
-    pub fn object(&self) -> &HashMap<String, Value> {
-        self.get_object().unwrap_or_else(|| panic!("only Object can convert into HashMap, but {}", self.node_type()))
+    pub fn object(&self) -> &IndexMap<String, Value> {
+        self.get_object().unwrap_or_else(|| panic!("only Object can convert into IndexMap, but {}", self.node_type()))
     }
 
     pub fn get_array(&self) -> Option<&Vec<Value>> {
@@ -155,19 +155,19 @@ impl Value {
     }
 }
 
-impl From<Value> for HashMap<String, Value> {
+impl From<Value> for IndexMap<String, Value> {
     fn from(val: Value) -> Self {
         match val {
             Value::Object(m) => m,
-            _ => panic!("only Object can convert into HashMap, but {}", val.node_type()),
+            _ => panic!("only Object can convert into IndexMap, but {}", val.node_type()),
         }
     }
 }
-impl<'a> From<&'a Value> for &'a HashMap<String, Value> {
+impl<'a> From<&'a Value> for &'a IndexMap<String, Value> {
     fn from(val: &'a Value) -> Self {
         match val {
             Value::Object(m) => m,
-            _ => panic!("only Object can convert into HashMap, but {}", val.node_type()),
+            _ => panic!("only Object can convert into IndexMap, but {}", val.node_type()),
         }
     }
 }
@@ -291,8 +291,8 @@ impl Value {
     }
 }
 
-impl From<HashMap<String, Value>> for Value {
-    fn from(m: HashMap<String, Value>) -> Self {
+impl From<IndexMap<String, Value>> for Value {
+    fn from(m: IndexMap<String, Value>) -> Self {
         Value::Object(m)
     }
 }

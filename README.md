@@ -53,9 +53,9 @@ println!("{:?}", json["keyword"].array()); // ["RUST", "JSON", "PARSER"]
 // write json
 json.dump("path/to/write.json").expect("failed to write json");
 // {
-//     "version": 0.2,
-//     "notation": "json",
 //     "language": "ruby",
+//     "notation": "json",
+//     "version": 0.2,
 //     "keyword": [
 //         "RUST",
 //         "JSON",
@@ -83,13 +83,13 @@ SUBCOMMANDS:
     help       Print this message or the help of the given subcommand(s)
 ```
 #### format
-format output will be random...
+format output will be same json string.
 ```sh
 $ dyson format path/to/read.json
 {
-    "version": 0.1,
     "language": "rust",
     "notation": "json",
+    "version": 0.1,
     "keyword": [
         "rust",
         "json",
@@ -101,9 +101,9 @@ $ dyson format path/to/read.json
 ```sh
 $ cat path/to/read.json | dyson format
 {
+    "language": "rust",
     "notation": "json",
     "version": 0.1,
-    "language": "rust",
     "keyword": [
         "rust",
         "json",

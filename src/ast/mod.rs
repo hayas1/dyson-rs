@@ -4,7 +4,7 @@ pub mod into;
 pub mod io;
 pub mod visit;
 
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 /// [`Value`] is ast node of json. see [Introducing JSON](https://www.json.org/json-en.html) also.
 /// # supports
@@ -54,7 +54,7 @@ use std::collections::HashMap;
 #[derive(PartialEq, Debug, Clone)]
 pub enum Value {
     /// correspond to object of json. object can be represented by `HashMap` in rust.
-    Object(HashMap<String, Value>),
+    Object(IndexMap<String, Value>),
 
     /// correspond to array of json. array can be represented by `Vec` in rust.
     Array(Vec<Value>),

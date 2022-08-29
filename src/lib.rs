@@ -43,9 +43,9 @@
 //! // write json
 //! json.dump("path/to/write.json").expect("failed to write json");
 //! // {
-//! //     "version": 0.2,
-//! //     "notation": "json",
 //! //     "language": "ruby",
+//! //     "notation": "json",
+//! //     "version": 0.2,
 //! //     "keyword": [
 //! //         "RUST",
 //! //         "JSON",

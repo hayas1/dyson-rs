@@ -1,5 +1,3 @@
-use std::{collections::hash_map, slice};
-
 use super::Value;
 
 pub struct DfsVisitor<'a> {
@@ -7,8 +5,8 @@ pub struct DfsVisitor<'a> {
     first: Option<&'a Value>,
 }
 enum ValueIterator<'a> {
-    ObjectIterator(hash_map::Iter<'a, String, Value>),
-    ArrayIterator(slice::Iter<'a, Value>),
+    ObjectIterator(indexmap::map::Iter<'a, String, Value>),
+    ArrayIterator(std::slice::Iter<'a, Value>),
 }
 #[derive(Debug, PartialEq)]
 pub enum DfsEvent<'a> {
