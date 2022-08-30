@@ -1,3 +1,4 @@
+pub mod diff;
 pub mod edit;
 pub mod index;
 pub mod into;
