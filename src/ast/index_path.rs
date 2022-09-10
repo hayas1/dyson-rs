@@ -1,16 +1,14 @@
-use std::iter::FromIterator;
-
-use itertools::Itertools;
-
 use super::{
     index::{JsonIndex, JsonIndexer},
     quote, Value,
 };
+use itertools::Itertools;
+use std::iter::FromIterator;
 
 /// [`JsonPath`] is used for accessing [`Value`]. see [`Value::get`] also.
 /// # examples
 /// ```
-/// use dyson::{ast::{index::JsonIndexer, path::JsonPath}, Value};
+/// use dyson::{JsonIndexer, JsonPath, Value};
 /// let raw_json = r#"{"key": [1, "two", 3, "four", 5]}"#;
 /// let json = Value::parse(raw_json).unwrap();
 ///
@@ -49,10 +47,16 @@ impl JsonPath {
     pub fn pop(&mut self) -> Option<JsonIndexer> {
         self.path.pop()
     }
-    pub fn iter(&self) -> impl Iterator<Item = &JsonIndexer> {
+    pub fn get(&self, index: usize) -> Option<&JsonIndexer> {
+        self.path.get(index)
+    }
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut JsonIndexer> {
+        self.path.get_mut(index)
+    }
+    pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, JsonIndexer> {
         self.path.iter()
     }
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut JsonIndexer> {
+    pub fn iter_mut<'a>(&'a mut self) -> std::slice::IterMut<'a, JsonIndexer> {
         self.path.iter_mut()
     }
     pub fn last(&self) -> Option<&JsonIndexer> {
@@ -60,6 +64,28 @@ impl JsonPath {
     }
     pub fn split_last(&self) -> Option<(JsonPath, &JsonIndexer)> {
         self.path.split_last().map(|(t, h)| (h.into(), t))
+    }
+}
+impl JsonPath {
+    /// get lowest common ancestor
+    pub fn lca(a: &Self, b: &Self) -> Self {
+        let mut result = Self::new();
+        for (ai, _bi) in itertools::zip(a, b).take_while(|(ai, bi)| ai == bi) {
+            result.push(ai.clone());
+        }
+        result
+    }
+}
+
+impl<'a> std::ops::Index<usize> for JsonPath {
+    type Output = JsonIndexer;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.path[index]
+    }
+}
+impl<'a> std::ops::IndexMut<usize> for JsonPath {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.path[index]
     }
 }
 
@@ -71,6 +97,16 @@ impl From<&[JsonIndexer]> for JsonPath {
 impl FromIterator<JsonIndexer> for JsonPath {
     fn from_iter<T: IntoIterator<Item = JsonIndexer>>(iter: T) -> Self {
         Self { path: iter.into_iter().collect() }
+    }
+}
+impl<'a> IntoIterator for &'a JsonPath {
+    type Item = &'a JsonIndexer;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        // FIXME why cannot compile?
+        // type IntoIter = std::slice::Iter<'a, Self::Item>;
+        // (&self.path).into_iter()
+        (&self.path).into_iter().map(|x| x).collect_vec().into_iter()
     }
 }
 impl IntoIterator for JsonPath {
