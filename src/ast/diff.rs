@@ -1,6 +1,6 @@
 use super::{
     index::{JsonIndexer, JsonPath},
-    Value,
+    quote, Value,
 };
 use itertools::Itertools;
 
@@ -58,19 +58,33 @@ pub fn diff_value_detail(a: &Value, b: &Value) -> Vec<String> {
     let path = diff_value(a, b);
     for (pa, pb) in path {
         if pa.last() == pb.last() {
-            result.push(format!("{:?}: different value {} and {}", pa, a[&pa], b[&pb]));
+            result.push(format!("{}: different value {} and {}", path_to_string(&pa), a[&pa], b[&pb]));
         } else {
             let (pal, (pbl, prefix)) =
                 (pa.last(), pb.split_last().map_or_else(|| (None, &[][..]), |(t, h)| (Some(t), h)));
             match (pal, pbl) {
                 (Some(pal), Some(pbl)) => {
-                    result.push(format!("{:?}: different key {:?} and {:?}", prefix, pal, pbl));
+                    result.push(format!("{}: different key {:?} and {:?}", path_to_string(&prefix.into()), pal, pbl));
                 }
                 _ => unreachable!("above function ensure that pa and pb have same length"),
             }
         }
     }
     result
+}
+
+// TODO impl `Display` for JsonIndexer
+// TODO impl `Display` for JsonPath (so JsonPath should be struct)
+fn path_to_string(path: &JsonPath) -> String {
+    format!(
+        "{}",
+        path.iter()
+            .map(|ji| match ji {
+                JsonIndexer::ObjInd(s) => quote(s),
+                JsonIndexer::ArrInd(i) => i.to_string(),
+            })
+            .join(">")
+    )
 }
 
 #[cfg(test)]
