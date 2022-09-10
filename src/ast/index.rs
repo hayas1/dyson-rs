@@ -309,4 +309,17 @@ mod tests {
 
         let _ = ast_root[&JsonIndexer::ArrInd(1)];
     }
+
+    #[test]
+    fn test_access_by_path() {
+        let json = r#"{ "key": [ 1, "two", { "foo": "bar" } ] }"#;
+        let ast_root = Value::parse(json).unwrap();
+
+        let path = vec![
+            JsonIndexer::ObjInd("key".to_string()),
+            JsonIndexer::ArrInd(2),
+            JsonIndexer::ObjInd("foo".to_string()),
+        ];
+        assert_eq!(ast_root[&path], Value::String("bar".to_string()));
+    }
 }
