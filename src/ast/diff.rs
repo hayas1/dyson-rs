@@ -1,4 +1,4 @@
-use super::{index::JsonIndexer, path::JsonPath, quote, Value};
+use super::{index::JsonIndexer, path::JsonPath, Value};
 use itertools::Itertools;
 
 /// compare `a` and `b` that are expected same structure. this method's complexity is **O(max{|a|, |b|})**.
@@ -55,33 +55,19 @@ pub fn diff_value_detail(a: &Value, b: &Value) -> Vec<String> {
     let path = diff_value(a, b);
     for (pa, pb) in path {
         if pa.last() == pb.last() {
-            result.push(format!("{}: different value {} and {}", path_to_string(&pa), a[&pa], b[&pb]));
+            result.push(format!("{}: different value {} and {}", pa, a[&pa], b[&pb]));
         } else {
             let ((prefix, pal), pbl) =
                 (pa.split_last().map_or_else(|| (JsonPath::new(), None), |(h, t)| (h, Some(t))), pb.last());
             match (pal, pbl) {
                 (Some(pal), Some(pbl)) => {
-                    result.push(format!("{}: different key {:?} and {:?}", path_to_string(&prefix.into()), pal, pbl));
+                    result.push(format!("{}: different key {:?} and {:?}", prefix, pal, pbl));
                 }
                 _ => unreachable!("above function ensure that pa and pb have same length"),
             }
         }
     }
     result
-}
-
-// TODO impl `Display` for JsonIndexer
-// TODO impl `Display` for JsonPath (so JsonPath should be struct)
-fn path_to_string(path: &JsonPath) -> String {
-    format!(
-        "{}",
-        path.iter()
-            .map(|ji| match ji {
-                JsonIndexer::ObjInd(s) => quote(s),
-                JsonIndexer::ArrInd(i) => i.to_string(),
-            })
-            .join(">")
-    )
 }
 
 #[cfg(test)]
