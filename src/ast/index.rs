@@ -49,7 +49,6 @@ pub struct Ranger<R>(
     /// range object like `start..end`, `..end`, `start..=end`, and so on.
     pub R,
 );
-
 /// [`JsonIndexer`] is used for accessing [`Value`]. see [`Value::get`] also.
 /// # examples
 /// ```
@@ -57,13 +56,16 @@ pub struct Ranger<R>(
 /// let raw_json = r#"{"key": [1, "two", 3, "four", 5]}"#;
 /// let json = Value::parse(raw_json).unwrap();
 ///
-/// assert_eq!(json[JsonIndexer::ObjInd("key".to_string())][JsonIndexer::ArrInd(0)], Value::Integer(1));
+/// let path = vec![JsonIndexer::ObjInd("key".to_string()), JsonIndexer::ArrInd(0)];
+/// assert_eq!(json[&path], Value::Integer(1));
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum JsonIndexer {
     ObjInd(String),
     ArrInd(usize),
 }
+pub type JsonPath = Vec<JsonIndexer>;
+
 pub trait JsonIndex {
     type Output: ?Sized;
     fn gotten(self, value: &Value) -> Option<&Self::Output>;
@@ -152,35 +154,65 @@ impl<R: SliceIndex<[Value]>> JsonIndex for Ranger<R> {
         }
     }
 }
-impl JsonIndex for JsonIndexer {
+impl JsonIndex for &JsonIndexer {
     type Output = Value;
     fn gotten(self, value: &Value) -> Option<&Self::Output> {
         match (self, value) {
-            (JsonIndexer::ObjInd(s), Value::Object(m)) => m.get(&s),
-            (JsonIndexer::ArrInd(i), Value::Array(a)) => a.get(i),
+            (JsonIndexer::ObjInd(s), Value::Object(m)) => m.get(s),
+            (&JsonIndexer::ArrInd(i), Value::Array(a)) => a.get(i),
             _ => None,
         }
     }
     fn gotten_mut(self, value: &mut Value) -> Option<&mut Self::Output> {
         match (self, value) {
-            (JsonIndexer::ObjInd(s), Value::Object(m)) => m.get_mut(&s),
-            (JsonIndexer::ArrInd(i), Value::Array(a)) => a.get_mut(i),
+            (JsonIndexer::ObjInd(s), Value::Object(m)) => m.get_mut(s),
+            (&JsonIndexer::ArrInd(i), Value::Array(a)) => a.get_mut(i),
             _ => None,
         }
     }
     fn indexed(self, value: &Value) -> &Self::Output {
         match (&self, value) {
             (JsonIndexer::ObjInd(s), Value::Object(m)) => &m[s],
-            (&JsonIndexer::ArrInd(i), Value::Array(a)) => &a[i],
+            (&&JsonIndexer::ArrInd(i), Value::Array(a)) => &a[i],
             _ => panic!("{} cannot be indexed by {:?}", value.node_type(), &self),
         }
     }
     fn indexed_mut(self, value: &mut Value) -> &mut Self::Output {
         match (&self, value) {
             (JsonIndexer::ObjInd(s), Value::Object(m)) => &mut m[s],
-            (&JsonIndexer::ArrInd(i), Value::Array(a)) => &mut a[i],
+            (&&JsonIndexer::ArrInd(i), Value::Array(a)) => &mut a[i],
             (_, v) => panic!("{} cannot be indexed by {:?}", v.node_type(), &self),
         }
+    }
+}
+impl JsonIndex for JsonIndexer {
+    type Output = Value;
+    fn gotten(self, value: &Value) -> Option<&Self::Output> {
+        (&self).gotten(value)
+    }
+    fn gotten_mut(self, value: &mut Value) -> Option<&mut Self::Output> {
+        (&self).gotten_mut(value)
+    }
+    fn indexed(self, value: &Value) -> &Self::Output {
+        (&self).indexed(value)
+    }
+    fn indexed_mut(self, value: &mut Value) -> &mut Self::Output {
+        (&self).indexed_mut(value)
+    }
+}
+impl JsonIndex for &JsonPath {
+    type Output = Value;
+    fn gotten(self, value: &Value) -> Option<&Self::Output> {
+        self.iter().fold(Some(value), |v, i| v.and_then(|sv| sv.get(i)))
+    }
+    fn gotten_mut(self, value: &mut Value) -> Option<&mut Self::Output> {
+        self.iter().fold(Some(value), |v, i| v.and_then(|sv| sv.get_mut(i)))
+    }
+    fn indexed(self, value: &Value) -> &Self::Output {
+        self.iter().fold(value, |v, i| &v[i])
+    }
+    fn indexed_mut(self, value: &mut Value) -> &mut Self::Output {
+        self.iter().fold(value, |v, i| &mut v[i])
     }
 }
 
@@ -258,8 +290,8 @@ mod tests {
             r#"}"#,
         ];
         let ast_root = Value::parse(json.into_iter().collect::<String>()).unwrap();
-        assert_eq!(ast_root[JsonIndexer::ObjInd("language".to_string())], Value::String("rust".to_string()));
-        assert_eq!(ast_root[JsonIndexer::ObjInd("keyword".to_string())][JsonIndexer::ArrInd(3)], Value::Integer(1));
+        assert_eq!(ast_root[&JsonIndexer::ObjInd("language".to_string())], Value::String("rust".to_string()));
+        assert_eq!(ast_root[&JsonIndexer::ObjInd("keyword".to_string())][&JsonIndexer::ArrInd(3)], Value::Integer(1));
     }
 
     #[test]
@@ -275,6 +307,6 @@ mod tests {
         ];
         let ast_root = Value::parse(json.into_iter().collect::<String>()).unwrap();
 
-        let _ = ast_root[JsonIndexer::ArrInd(1)];
+        let _ = ast_root[&JsonIndexer::ArrInd(1)];
     }
 }
