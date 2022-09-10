@@ -52,7 +52,7 @@ pub struct Ranger<R>(
 /// [`JsonIndexer`] is used for accessing [`Value`]. see [`Value::get`] also.
 /// # examples
 /// ```
-/// use dyson::{ast::{index::JsonIndexer, path::JsonPath}, Value};
+/// use dyson::{JsonIndexer, Value};
 /// let raw_json = r#"{"key": [1, "two", 3, "four", 5]}"#;
 /// let json = Value::parse(raw_json).unwrap();
 ///

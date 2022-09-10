@@ -59,7 +59,8 @@ pub mod ast;
 pub mod rawjson;
 pub mod syntax;
 
-pub use ast::index::Ranger;
+pub use ast::index::{JsonIndexer, Ranger};
+pub use ast::index_path::JsonPath;
 pub use ast::io::Indent;
 pub use ast::visit::DfsEvent;
 pub use ast::Value;
