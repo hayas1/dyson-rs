@@ -49,6 +49,23 @@ pub struct Ranger<R>(
     /// range object like `start..end`, `..end`, `start..=end`, and so on.
     pub R,
 );
+/// [`JsonIndexer`] is used for accessing [`Value`]. see [`Value::get`] also.
+/// # examples
+/// ```
+/// use dyson::{ast::index::JsonIndexer, Value};
+/// let raw_json = r#"{"key": [1, "two", 3, "four", 5]}"#;
+/// let json = Value::parse(raw_json).unwrap();
+///
+/// let path = vec![JsonIndexer::ObjInd("key".to_string()), JsonIndexer::ArrInd(0)];
+/// assert_eq!(json[&path], Value::Integer(1));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum JsonIndexer {
+    ObjInd(String),
+    ArrInd(usize),
+}
+pub type JsonPath = Vec<JsonIndexer>;
+
 pub trait JsonIndex {
     type Output: ?Sized;
     fn gotten(self, value: &Value) -> Option<&Self::Output>;
@@ -137,6 +154,68 @@ impl<R: SliceIndex<[Value]>> JsonIndex for Ranger<R> {
         }
     }
 }
+impl JsonIndex for &JsonIndexer {
+    type Output = Value;
+    fn gotten(self, value: &Value) -> Option<&Self::Output> {
+        match (self, value) {
+            (JsonIndexer::ObjInd(s), Value::Object(m)) => m.get(s),
+            (&JsonIndexer::ArrInd(i), Value::Array(a)) => a.get(i),
+            _ => None,
+        }
+    }
+    fn gotten_mut(self, value: &mut Value) -> Option<&mut Self::Output> {
+        match (self, value) {
+            (JsonIndexer::ObjInd(s), Value::Object(m)) => m.get_mut(s),
+            (&JsonIndexer::ArrInd(i), Value::Array(a)) => a.get_mut(i),
+            _ => None,
+        }
+    }
+    fn indexed(self, value: &Value) -> &Self::Output {
+        match (&self, value) {
+            (JsonIndexer::ObjInd(s), Value::Object(m)) => &m[s],
+            (&&JsonIndexer::ArrInd(i), Value::Array(a)) => &a[i],
+            _ => panic!("{} cannot be indexed by {:?}", value.node_type(), &self),
+        }
+    }
+    fn indexed_mut(self, value: &mut Value) -> &mut Self::Output {
+        match (&self, value) {
+            (JsonIndexer::ObjInd(s), Value::Object(m)) => &mut m[s],
+            (&&JsonIndexer::ArrInd(i), Value::Array(a)) => &mut a[i],
+            (_, v) => panic!("{} cannot be indexed by {:?}", v.node_type(), &self),
+        }
+    }
+}
+impl JsonIndex for JsonIndexer {
+    type Output = Value;
+    fn gotten(self, value: &Value) -> Option<&Self::Output> {
+        (&self).gotten(value)
+    }
+    fn gotten_mut(self, value: &mut Value) -> Option<&mut Self::Output> {
+        (&self).gotten_mut(value)
+    }
+    fn indexed(self, value: &Value) -> &Self::Output {
+        (&self).indexed(value)
+    }
+    fn indexed_mut(self, value: &mut Value) -> &mut Self::Output {
+        (&self).indexed_mut(value)
+    }
+}
+impl JsonIndex for &JsonPath {
+    type Output = Value;
+    fn gotten(self, value: &Value) -> Option<&Self::Output> {
+        self.iter().fold(Some(value), |v, i| v.and_then(|sv| sv.get(i)))
+    }
+    fn gotten_mut(self, value: &mut Value) -> Option<&mut Self::Output> {
+        self.iter().fold(Some(value), |v, i| v.and_then(|sv| sv.get_mut(i)))
+    }
+    fn indexed(self, value: &Value) -> &Self::Output {
+        self.iter().fold(value, |v, i| &v[i])
+    }
+    fn indexed_mut(self, value: &mut Value) -> &mut Self::Output {
+        self.iter().fold(value, |v, i| &mut v[i])
+    }
+}
+
 impl<'a, I: JsonIndex> Index<I> for Value {
     type Output = I::Output;
     fn index(&self, index: I) -> &Self::Output {
@@ -178,11 +257,69 @@ mod tests {
             [Value::String("rust".to_string()), Value::String("json".to_string()), Value::String("parser".to_string())]
         );
         assert_eq!(keyword[Ranger(..=2)][2], Value::String("parser".to_string()));
-        // compile error
-        // let _ = ast_root["keyword"][Ranger(..3)]["str"]; // the type `[ast::Value]` cannot be indexed by `&str`
+    }
 
-        // runtime error
-        // let _ = &ast_root["version"][0][1]; // usize index can access Array value only
-        // let _ = &ast_root["keyword"][999999999999]; // index out of bounds: the len is 6 but the index is 999999999999
+    #[test]
+    #[should_panic]
+    fn test_panic_access_json() {
+        let json = [
+            r#"{"#,
+            r#"    "language": "rust","#,
+            r#"    "notation": "json","#,
+            r#"    "version": 0.1,"#,
+            r#"    "keyword": ["rust", "json", "parser", 1, 2, 3]"#,
+            r#"}"#,
+        ];
+        let ast_root = Value::parse(json.into_iter().collect::<String>()).unwrap();
+
+        // compile error
+        // let _ = ast_root["keyword"][Ranger(..3)]["str"]; // slice `[ast::Value]` cannot be indexed by `&str`
+
+        let _ = &ast_root["version"][0][1]; // usize index can access Array value only
+        let _ = &ast_root["keyword"][999999999999]; // index out of bounds: the len is 6 but the index is 999999999999
+    }
+
+    #[test]
+    fn test_access_by_json_indexer() {
+        let json = [
+            r#"{"#,
+            r#"    "language": "rust","#,
+            r#"    "notation": "json","#,
+            r#"    "version": 0.1,"#,
+            r#"    "keyword": ["rust", "json", "parser", 1, 2, 3]"#,
+            r#"}"#,
+        ];
+        let ast_root = Value::parse(json.into_iter().collect::<String>()).unwrap();
+        assert_eq!(ast_root[&JsonIndexer::ObjInd("language".to_string())], Value::String("rust".to_string()));
+        assert_eq!(ast_root[&JsonIndexer::ObjInd("keyword".to_string())][&JsonIndexer::ArrInd(3)], Value::Integer(1));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_panic_access_by_json_indexer() {
+        let json = [
+            r#"{"#,
+            r#"    "language": "rust","#,
+            r#"    "notation": "json","#,
+            r#"    "version": 0.1,"#,
+            r#"    "keyword": ["rust", "json", "parser", 1, 2, 3]"#,
+            r#"}"#,
+        ];
+        let ast_root = Value::parse(json.into_iter().collect::<String>()).unwrap();
+
+        let _ = ast_root[&JsonIndexer::ArrInd(1)];
+    }
+
+    #[test]
+    fn test_access_by_path() {
+        let json = r#"{ "key": [ 1, "two", { "foo": "bar" } ] }"#;
+        let ast_root = Value::parse(json).unwrap();
+
+        let path = vec![
+            JsonIndexer::ObjInd("key".to_string()),
+            JsonIndexer::ArrInd(2),
+            JsonIndexer::ObjInd("foo".to_string()),
+        ];
+        assert_eq!(ast_root[&path], Value::String("bar".to_string()));
     }
 }

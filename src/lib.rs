@@ -63,3 +63,5 @@ pub use ast::index::Ranger;
 pub use ast::io::Indent;
 pub use ast::visit::DfsEvent;
 pub use ast::Value;
+
+pub use ast::diff::{diff_value, diff_value_detail};
