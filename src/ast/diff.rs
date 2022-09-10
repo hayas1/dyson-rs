@@ -41,3 +41,46 @@ pub fn diff_value(a: &Value, b: &Value) -> Vec<JsonPath> {
     diff_value_recursive(a, b, &mut Vec::new(), &mut differences);
     differences
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::*;
+
+    #[test]
+    fn test_diff_value_json() {
+        let json1 = [
+            r#"{"#,
+            r#"    "language": "rust","#,
+            r#"    "notation": "json","#,
+            r#"    "version": 0.1,"#,
+            r#"    "keyword": ["rust", "json", "parser", 1, 2, 3]"#,
+            r#"}"#,
+        ];
+        let json2 = [
+            r#"{"#,
+            r#"    "language": "ruby","#,
+            r#"    "notation": "json","#,
+            r#"    "version": 0.1,"#,
+            r#"    "keyword": ["rust", "json", "tokenizer", 1, 2, 3]"#,
+            r#"}"#,
+        ];
+        let ast_root1 = Value::parse(json1.into_iter().collect::<String>()).unwrap();
+        let ast_root2 = Value::parse(json2.into_iter().collect::<String>()).unwrap();
+
+        let diff_path = diff_value(&ast_root1, &ast_root2);
+        assert_eq!(
+            diff_path.iter().collect::<HashSet<_>>(),
+            vec![
+                vec![JsonIndexer::ObjInd("keyword".to_string()), JsonIndexer::ArrInd(2)],
+                vec![JsonIndexer::ObjInd("language".to_string())]
+            ]
+            .iter()
+            .collect::<HashSet<_>>()
+        );
+        for path in diff_path {
+            assert_ne!(ast_root1[&path], ast_root2[&path]);
+        }
+    }
+}
