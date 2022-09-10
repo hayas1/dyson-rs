@@ -5,40 +5,47 @@ use super::{
 use itertools::Itertools;
 
 /// **O(max{|a|, |b|})**, compare `a` and `b` that are expected same structure.
-/// returned [`JsonPath`] is based on `a`'s structure.
 /// # panics
 /// if 'a' and 'b' do not have same structure.
-pub fn diff_value(a: &Value, b: &Value) -> Vec<JsonPath> {
-    fn diff_value_recursive(a: &Value, b: &Value, path: &mut JsonPath, differences: &mut Vec<JsonPath>) {
+pub fn diff_value(a: &Value, b: &Value) -> Vec<(JsonPath, JsonPath)> {
+    fn diff_value_recursive(
+        (a, b): (&Value, &Value),
+        (path_a, path_b): (&mut JsonPath, &mut JsonPath),
+        differences: &mut Vec<(JsonPath, JsonPath)>,
+    ) {
         match (a, b) {
             (Value::Object(ma), Value::Object(mb)) => {
                 let (mai, mbi) = (ma.iter().sorted_by_key(|e| e.0), mb.iter().sorted_by_key(|e| e.0));
                 for ((mak, mav), (mbk, mbv)) in itertools::zip_eq(mai, mbi) {
-                    path.push(JsonIndexer::ObjInd(mak.to_string()));
+                    path_a.push(JsonIndexer::ObjInd(mak.to_string()));
+                    path_b.push(JsonIndexer::ObjInd(mbk.to_string()));
                     if mak == mbk {
-                        diff_value_recursive(mav, mbv, path, differences);
+                        diff_value_recursive((mav, mbv), (path_a, path_b), differences);
                     } else {
-                        differences.push(path.clone())
+                        differences.push((path_a.clone(), path_b.clone()));
                     }
-                    path.pop();
+                    path_b.pop();
+                    path_a.pop();
                 }
             }
             (Value::Array(va), Value::Array(vb)) => {
                 for (i, (vav, vbv)) in itertools::zip_eq(va, vb).enumerate() {
-                    path.push(JsonIndexer::ArrInd(i));
-                    diff_value_recursive(vav, vbv, path, differences);
-                    path.pop();
+                    path_a.push(JsonIndexer::ArrInd(i));
+                    path_b.push(JsonIndexer::ArrInd(i));
+                    diff_value_recursive((vav, vbv), (path_a, path_b), differences);
+                    path_b.pop();
+                    path_a.pop();
                 }
             }
             (av, bv) => {
                 if av != bv {
-                    differences.push(path.clone())
+                    differences.push((path_a.clone(), path_b.clone()));
                 }
             }
         }
     }
     let mut differences = Vec::new();
-    diff_value_recursive(a, b, &mut Vec::new(), &mut differences);
+    diff_value_recursive((a, b), (&mut Vec::new(), &mut Vec::new()), &mut differences);
     differences
 }
 
@@ -73,14 +80,17 @@ mod tests {
         assert_eq!(
             diff_path.iter().collect::<HashSet<_>>(),
             vec![
-                vec![JsonIndexer::ObjInd("keyword".to_string()), JsonIndexer::ArrInd(2)],
-                vec![JsonIndexer::ObjInd("language".to_string())]
+                (
+                    vec![JsonIndexer::ObjInd("keyword".to_string()), JsonIndexer::ArrInd(2)],
+                    vec![JsonIndexer::ObjInd("keyword".to_string()), JsonIndexer::ArrInd(2)]
+                ),
+                (vec![JsonIndexer::ObjInd("language".to_string())], vec![JsonIndexer::ObjInd("language".to_string())]),
             ]
             .iter()
             .collect::<HashSet<_>>()
         );
-        for path in diff_path {
-            assert_ne!(ast_root1[&path], ast_root2[&path]);
+        for (path1, path2) in diff_path {
+            assert_ne!(ast_root1[&path1], ast_root2[&path2]);
         }
     }
 }
