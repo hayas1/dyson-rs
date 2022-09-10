@@ -58,7 +58,7 @@ pub fn diff_value_detail(a: &Value, b: &Value) -> Vec<String> {
             result.push(format!("{}: different value {} and {}", path_to_string(&pa), a[&pa], b[&pb]));
         } else {
             let ((prefix, pal), pbl) =
-                (pa.split_last().map_or_else(|| (&[][..], None), |(h, t)| (h, Some(t))), pb.last());
+                (pa.split_last().map_or_else(|| (JsonPath::new(), None), |(h, t)| (h, Some(t))), pb.last());
             match (pal, pbl) {
                 (Some(pal), Some(pbl)) => {
                     result.push(format!("{}: different key {:?} and {:?}", path_to_string(&prefix.into()), pal, pbl));

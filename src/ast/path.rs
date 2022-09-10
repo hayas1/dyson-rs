@@ -58,8 +58,8 @@ impl JsonPath {
     pub fn last(&self) -> Option<&JsonIndexer> {
         self.path.last()
     }
-    pub fn split_last(&self) -> Option<(&[JsonIndexer], &JsonIndexer)> {
-        self.path.split_last().map(|(t, h)| (h, t))
+    pub fn split_last(&self) -> Option<(JsonPath, &JsonIndexer)> {
+        self.path.split_last().map(|(t, h)| (h.into(), t))
     }
 }
 
