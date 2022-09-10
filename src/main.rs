@@ -64,7 +64,7 @@ struct CompareArg {
     /// input json file path
     path1: String,
 
-    /// input json file path2 (OPtional)
+    /// input json file path2 (Optional)
     ///
     /// if omit this argument, compare with stdin.
     path2: Option<String>,
