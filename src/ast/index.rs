@@ -49,6 +49,21 @@ pub struct Ranger<R>(
     /// range object like `start..end`, `..end`, `start..=end`, and so on.
     pub R,
 );
+
+/// [`JsonIndexer`] is used for accessing [`Value`]. see [`Value::get`] also.
+/// # examples
+/// ```
+/// use dyson::{ast::index::JsonIndexer, Value};
+/// let raw_json = r#"{"key": [1, "two", 3, "four", 5]}"#;
+/// let json = Value::parse(raw_json).unwrap();
+///
+/// assert_eq!(json[JsonIndexer::ObjInd("key".to_string())][JsonIndexer::ArrInd(0)], Value::Integer(1));
+/// ```
+#[derive(Debug)]
+pub enum JsonIndexer {
+    ObjInd(String),
+    ArrInd(usize),
+}
 pub trait JsonIndex {
     type Output: ?Sized;
     fn gotten(self, value: &Value) -> Option<&Self::Output>;
@@ -137,6 +152,38 @@ impl<R: SliceIndex<[Value]>> JsonIndex for Ranger<R> {
         }
     }
 }
+impl JsonIndex for JsonIndexer {
+    type Output = Value;
+    fn gotten(self, value: &Value) -> Option<&Self::Output> {
+        match (self, value) {
+            (JsonIndexer::ObjInd(s), Value::Object(m)) => m.get(&s),
+            (JsonIndexer::ArrInd(i), Value::Array(a)) => a.get(i),
+            _ => None,
+        }
+    }
+    fn gotten_mut(self, value: &mut Value) -> Option<&mut Self::Output> {
+        match (self, value) {
+            (JsonIndexer::ObjInd(s), Value::Object(m)) => m.get_mut(&s),
+            (JsonIndexer::ArrInd(i), Value::Array(a)) => a.get_mut(i),
+            _ => None,
+        }
+    }
+    fn indexed(self, value: &Value) -> &Self::Output {
+        match (&self, value) {
+            (JsonIndexer::ObjInd(s), Value::Object(m)) => &m[s],
+            (&JsonIndexer::ArrInd(i), Value::Array(a)) => &a[i],
+            _ => panic!("{} cannot be indexed by {:?}", value.node_type(), &self),
+        }
+    }
+    fn indexed_mut(self, value: &mut Value) -> &mut Self::Output {
+        match (&self, value) {
+            (JsonIndexer::ObjInd(s), Value::Object(m)) => &mut m[s],
+            (&JsonIndexer::ArrInd(i), Value::Array(a)) => &mut a[i],
+            (_, v) => panic!("{} cannot be indexed by {:?}", v.node_type(), &self),
+        }
+    }
+}
+
 impl<'a, I: JsonIndex> Index<I> for Value {
     type Output = I::Output;
     fn index(&self, index: I) -> &Self::Output {
