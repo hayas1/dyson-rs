@@ -113,13 +113,17 @@ $ cat path/to/read.json | dyson format
 ```
 
 #### compare
-too simple compare...
+simple compare.
 ```sh
 $ dyson compare path/to/read.json path/to/write.json
-false
+"keyword">0: different value "rust" and "RUST"
+"keyword">1: different value "json" and "JSON"
+"keyword">2: different value "parser" and "PARSER"
+"language": different value "rust" and "ruby"
+"version": different value 0.1 and 0.2
 ```
 
+if no difference, it print empty.
 ```sh
 $ cat path/to/read.json | dyson compare path/to/read.json
-true
 ```

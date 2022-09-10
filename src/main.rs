@@ -1,6 +1,6 @@
 use anyhow::bail;
 use clap::{App, Args, Parser, Subcommand};
-use dyson::{Indent, Value};
+use dyson::{diff_value_detail, Indent, Value};
 use std::io::{stdin, stdout};
 
 #[derive(Parser)]
@@ -79,6 +79,9 @@ fn compare(arg: CompareArg) -> anyhow::Result<()> {
     } else {
         Value::read(stdin())?
     };
-    println!("{}", json1 == json2);
+
+    for diff in diff_value_detail(&json1, &json2) {
+        println!("{}", diff);
+    }
     Ok(())
 }
