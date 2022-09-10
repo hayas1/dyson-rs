@@ -4,7 +4,7 @@ use super::{
 };
 use itertools::Itertools;
 
-/// **O(max{|a|, |b|})**, compare `a` and `b` that are expected same structure.
+/// compare `a` and `b` that are expected same structure. this method's complexity is **O(max{|a|, |b|})**.
 /// # panics
 /// if 'a' and 'b' do not have same structure.
 pub fn diff_value(a: &Value, b: &Value) -> Vec<(JsonPath, JsonPath)> {
@@ -49,8 +49,8 @@ pub fn diff_value(a: &Value, b: &Value) -> Vec<(JsonPath, JsonPath)> {
     differences
 }
 
-/// **O(max{|a|, |b|})**, compare `a` and `b` that are expected same structure.
-/// with human friendly message.
+/// compare `a` and `b` that are expected same structure. with human friendly message.
+/// this method's complexity is **O(max{|a|, |b|})**.
 /// # panics
 /// if 'a' and 'b' do not have same structure.
 pub fn diff_value_detail(a: &Value, b: &Value) -> Vec<String> {
