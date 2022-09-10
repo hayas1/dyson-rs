@@ -1,4 +1,4 @@
-use super::{index::JsonIndexer, path::JsonPath, Value};
+use super::{index::JsonIndexer, index_path::JsonPath, Value};
 use itertools::Itertools;
 
 /// compare `a` and `b` that are expected same structure. this method's complexity is **O(max{|a|, |b|})**.
