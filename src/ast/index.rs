@@ -225,11 +225,56 @@ mod tests {
             [Value::String("rust".to_string()), Value::String("json".to_string()), Value::String("parser".to_string())]
         );
         assert_eq!(keyword[Ranger(..=2)][2], Value::String("parser".to_string()));
-        // compile error
-        // let _ = ast_root["keyword"][Ranger(..3)]["str"]; // the type `[ast::Value]` cannot be indexed by `&str`
+    }
 
-        // runtime error
-        // let _ = &ast_root["version"][0][1]; // usize index can access Array value only
-        // let _ = &ast_root["keyword"][999999999999]; // index out of bounds: the len is 6 but the index is 999999999999
+    #[test]
+    #[should_panic]
+    fn test_panic_access_json() {
+        let json = [
+            r#"{"#,
+            r#"    "language": "rust","#,
+            r#"    "notation": "json","#,
+            r#"    "version": 0.1,"#,
+            r#"    "keyword": ["rust", "json", "parser", 1, 2, 3]"#,
+            r#"}"#,
+        ];
+        let ast_root = Value::parse(json.into_iter().collect::<String>()).unwrap();
+
+        // compile error
+        // let _ = ast_root["keyword"][Ranger(..3)]["str"]; // slice `[ast::Value]` cannot be indexed by `&str`
+
+        let _ = &ast_root["version"][0][1]; // usize index can access Array value only
+        let _ = &ast_root["keyword"][999999999999]; // index out of bounds: the len is 6 but the index is 999999999999
+    }
+
+    #[test]
+    fn test_access_by_json_indexer() {
+        let json = [
+            r#"{"#,
+            r#"    "language": "rust","#,
+            r#"    "notation": "json","#,
+            r#"    "version": 0.1,"#,
+            r#"    "keyword": ["rust", "json", "parser", 1, 2, 3]"#,
+            r#"}"#,
+        ];
+        let ast_root = Value::parse(json.into_iter().collect::<String>()).unwrap();
+        assert_eq!(ast_root[JsonIndexer::ObjInd("language".to_string())], Value::String("rust".to_string()));
+        assert_eq!(ast_root[JsonIndexer::ObjInd("keyword".to_string())][JsonIndexer::ArrInd(3)], Value::Integer(1));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_panic_access_by_json_indexer() {
+        let json = [
+            r#"{"#,
+            r#"    "language": "rust","#,
+            r#"    "notation": "json","#,
+            r#"    "version": 0.1,"#,
+            r#"    "keyword": ["rust", "json", "parser", 1, 2, 3]"#,
+            r#"}"#,
+        ];
+        let ast_root = Value::parse(json.into_iter().collect::<String>()).unwrap();
+
+        let _ = ast_root[JsonIndexer::ArrInd(1)];
     }
 }
