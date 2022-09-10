@@ -1,7 +1,4 @@
-use super::{
-    index::{JsonIndexer, JsonPath},
-    quote, Value,
-};
+use super::{index::JsonIndexer, path::JsonPath, quote, Value};
 use itertools::Itertools;
 
 /// compare `a` and `b` that are expected same structure. this method's complexity is **O(max{|a|, |b|})**.
@@ -45,7 +42,7 @@ pub fn diff_value(a: &Value, b: &Value) -> Vec<(JsonPath, JsonPath)> {
         }
     }
     let mut differences = Vec::new();
-    diff_value_recursive((a, b), (&mut Vec::new(), &mut Vec::new()), &mut differences);
+    diff_value_recursive((a, b), (&mut JsonPath::new(), &mut JsonPath::new()), &mut differences);
     differences
 }
 
@@ -60,8 +57,8 @@ pub fn diff_value_detail(a: &Value, b: &Value) -> Vec<String> {
         if pa.last() == pb.last() {
             result.push(format!("{}: different value {} and {}", path_to_string(&pa), a[&pa], b[&pb]));
         } else {
-            let (pal, (pbl, prefix)) =
-                (pa.last(), pb.split_last().map_or_else(|| (None, &[][..]), |(t, h)| (Some(t), h)));
+            let ((prefix, pal), pbl) =
+                (pa.split_last().map_or_else(|| (&[][..], None), |(h, t)| (h, Some(t))), pb.last());
             match (pal, pbl) {
                 (Some(pal), Some(pbl)) => {
                     result.push(format!("{}: different key {:?} and {:?}", path_to_string(&prefix.into()), pal, pbl));
@@ -119,10 +116,13 @@ mod tests {
             diff_path.iter().collect::<HashSet<_>>(),
             vec![
                 (
-                    vec![JsonIndexer::ObjInd("keyword".to_string()), JsonIndexer::ArrInd(2)],
-                    vec![JsonIndexer::ObjInd("keyword".to_string()), JsonIndexer::ArrInd(2)]
+                    JsonPath::from(&vec![JsonIndexer::ObjInd("keyword".to_string()), JsonIndexer::ArrInd(2)][..]),
+                    JsonPath::from(&vec![JsonIndexer::ObjInd("keyword".to_string()), JsonIndexer::ArrInd(2)][..]),
                 ),
-                (vec![JsonIndexer::ObjInd("language".to_string())], vec![JsonIndexer::ObjInd("language".to_string())]),
+                (
+                    JsonPath::from(&vec![JsonIndexer::ObjInd("language".to_string())][..]),
+                    JsonPath::from(&vec![JsonIndexer::ObjInd("language".to_string())][..]),
+                ),
             ]
             .iter()
             .collect::<HashSet<_>>()

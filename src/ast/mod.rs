@@ -3,6 +3,7 @@ pub mod edit;
 pub mod index;
 pub mod into;
 pub mod io;
+pub mod path;
 pub mod visit;
 
 use indexmap::IndexMap;
