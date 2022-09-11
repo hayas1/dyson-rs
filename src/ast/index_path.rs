@@ -65,15 +65,51 @@ impl JsonPath {
     pub fn split_last(&self) -> Option<(JsonPath, &JsonIndexer)> {
         self.path.split_last().map(|(t, h)| (h.into(), t))
     }
+    pub fn strip_prefix(&self, prefix: &Self) -> Option<Self> {
+        self.path.strip_prefix(&prefix.path[..]).map(|indexers| indexers.into())
+    }
+    pub fn starts_with(&self, prefix: &Self) -> bool {
+        self.path.starts_with(&prefix.path)
+    }
+    pub fn strip_suffix(&self, suffix: &Self) -> Option<Self> {
+        self.path.strip_suffix(&suffix.path[..]).map(|indexers| indexers.into())
+    }
+    pub fn ends_with(&self, suffix: &Self) -> bool {
+        self.path.ends_with(&suffix.path)
+    }
 }
 impl JsonPath {
-    /// get lowest common ancestor
+    /// get depth.
+    pub fn depth(&self) -> usize {
+        self.path.len()
+    }
+
+    /// get lowest common ancestor. this method's complexity is **O(`lca.depth()`)**.
     pub fn lca(a: &Self, b: &Self) -> Self {
         let mut result = Self::new();
         for (ai, _bi) in itertools::zip(a, b).take_while(|(ai, bi)| ai == bi) {
             result.push(ai.clone());
         }
         result
+    }
+
+    /// get parent.
+    pub fn parent(&self) -> Option<Self> {
+        self.split_last().map(|(h, _t)| h)
+    }
+
+    /// get ancestors. this method's complexity is **O(`depth`^2)**.
+    pub fn ancestors(&self) -> impl Iterator<Item = Self> {
+        let origin = self.clone();
+        (0..self.depth()).scan(origin, |a, _| {
+            a.pop();
+            Some(a.clone())
+        })
+    }
+
+    /// append `path` to back of `self`.
+    pub fn join(&self, path: &Self) -> Self {
+        self.iter().chain(path).cloned().collect()
     }
 }
 
@@ -89,6 +125,12 @@ impl<'a> std::ops::IndexMut<usize> for JsonPath {
     }
 }
 
+impl Extend<JsonIndexer> for JsonPath {
+    fn extend<T: IntoIterator<Item = JsonIndexer>>(&mut self, iter: T) {
+        self.path.extend(iter.into_iter())
+    }
+}
+
 impl From<&[JsonIndexer]> for JsonPath {
     fn from(indexer: &[JsonIndexer]) -> Self {
         Self { path: indexer.into() }
@@ -97,6 +139,11 @@ impl From<&[JsonIndexer]> for JsonPath {
 impl FromIterator<JsonIndexer> for JsonPath {
     fn from_iter<T: IntoIterator<Item = JsonIndexer>>(iter: T) -> Self {
         Self { path: iter.into_iter().collect() }
+    }
+}
+impl Into<Vec<JsonIndexer>> for JsonPath {
+    fn into(self) -> Vec<JsonIndexer> {
+        self.path
     }
 }
 impl<'a> IntoIterator for &'a JsonPath {
