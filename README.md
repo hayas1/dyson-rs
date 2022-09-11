@@ -20,6 +20,7 @@ $ cargo uninstall dyson
 ```
 # examples
 ## lib
+more detail, see [document](https://hayas1.github.io/dyson/dyson/).
 ```rust
 // `path/to/read.json`
 // {
