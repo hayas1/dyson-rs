@@ -52,19 +52,17 @@ pub struct Ranger<R>(
 /// [`JsonIndexer`] is used for accessing [`Value`]. see [`Value::get`] also.
 /// # examples
 /// ```
-/// use dyson::{ast::index::JsonIndexer, Value};
+/// use dyson::{JsonIndexer, Value};
 /// let raw_json = r#"{"key": [1, "two", 3, "four", 5]}"#;
 /// let json = Value::parse(raw_json).unwrap();
 ///
-/// let path = vec![JsonIndexer::ObjInd("key".to_string()), JsonIndexer::ArrInd(0)];
-/// assert_eq!(json[&path], Value::Integer(1));
+/// assert_eq!(json[JsonIndexer::ObjInd("key".to_string())][JsonIndexer::ArrInd(0)], Value::Integer(1));
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum JsonIndexer {
     ObjInd(String),
     ArrInd(usize),
 }
-pub type JsonPath = Vec<JsonIndexer>;
 
 pub trait JsonIndex {
     type Output: ?Sized;
@@ -200,21 +198,6 @@ impl JsonIndex for JsonIndexer {
         (&self).indexed_mut(value)
     }
 }
-impl JsonIndex for &JsonPath {
-    type Output = Value;
-    fn gotten(self, value: &Value) -> Option<&Self::Output> {
-        self.iter().fold(Some(value), |v, i| v.and_then(|sv| sv.get(i)))
-    }
-    fn gotten_mut(self, value: &mut Value) -> Option<&mut Self::Output> {
-        self.iter().fold(Some(value), |v, i| v.and_then(|sv| sv.get_mut(i)))
-    }
-    fn indexed(self, value: &Value) -> &Self::Output {
-        self.iter().fold(value, |v, i| &v[i])
-    }
-    fn indexed_mut(self, value: &mut Value) -> &mut Self::Output {
-        self.iter().fold(value, |v, i| &mut v[i])
-    }
-}
 
 impl<'a, I: JsonIndex> Index<I> for Value {
     type Output = I::Output;
@@ -230,6 +213,7 @@ impl<'a, I: JsonIndex> IndexMut<I> for Value {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
@@ -308,18 +292,5 @@ mod tests {
         let ast_root = Value::parse(json.into_iter().collect::<String>()).unwrap();
 
         let _ = ast_root[&JsonIndexer::ArrInd(1)];
-    }
-
-    #[test]
-    fn test_access_by_path() {
-        let json = r#"{ "key": [ 1, "two", { "foo": "bar" } ] }"#;
-        let ast_root = Value::parse(json).unwrap();
-
-        let path = vec![
-            JsonIndexer::ObjInd("key".to_string()),
-            JsonIndexer::ArrInd(2),
-            JsonIndexer::ObjInd("foo".to_string()),
-        ];
-        assert_eq!(ast_root[&path], Value::String("bar".to_string()));
     }
 }

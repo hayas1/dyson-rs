@@ -1,6 +1,7 @@
 pub mod diff;
 pub mod edit;
 pub mod index;
+pub mod index_path;
 pub mod into;
 pub mod io;
 pub mod visit;
