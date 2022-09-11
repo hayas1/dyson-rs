@@ -56,7 +56,6 @@
 //! more, see [`Value`] also.
 
 pub mod ast;
-pub mod rawjson;
 pub mod syntax;
 
 pub use ast::index::Ranger;

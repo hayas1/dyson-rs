@@ -1,6 +1,7 @@
 pub(crate) mod error;
 mod lexer;
 mod parser;
+pub mod rawjson;
 mod token;
 
 pub use lexer::Lexer;

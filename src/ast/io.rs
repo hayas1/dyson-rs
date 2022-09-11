@@ -1,8 +1,5 @@
 use super::Value;
-use crate::{
-    rawjson::RawJson,
-    syntax::{error::StructureError, Parser},
-};
+use crate::syntax::{error::StructureError, rawjson::RawJson, Parser};
 use std::{
     fs::File,
     io::{BufRead, BufReader, BufWriter, Read, Write},
@@ -21,7 +18,7 @@ impl Value {
     /// let raw2 = vec!["{", "\"key\": [", "1,", "\"two\",", "3,", "{\"foo\": {", "\"bar\": \"baz\"", "}", "}", "]", "}"];
     /// let json1 = Value::parse(raw2.iter().cloned().collect::<String>()).unwrap();
     /// // or
-    /// use dyson::rawjson::RawJson;
+    /// use dyson::syntax::rawjson::RawJson;
     /// let json2 = Value::parse(raw2.into_iter().collect::<RawJson>()).unwrap();
     ///
     /// assert_eq!(json, json1);

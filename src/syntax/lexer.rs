@@ -1,11 +1,9 @@
 use super::{
     error::ParseTokenError,
+    rawjson::RawJson,
     token::{MainToken, SequentialToken, SingleToken},
 };
-use crate::{
-    rawjson::RawJson,
-    syntax::error::{SequentialTokenError, SingleTokenError},
-};
+use crate::syntax::error::{SequentialTokenError, SingleTokenError};
 
 pub type Nexted = ((usize, usize), char); // next is not verb but...
 pub type Peeked<'a> = &'a Nexted;

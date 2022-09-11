@@ -4,10 +4,11 @@ use super::{
         StructureError,
     },
     lexer::SkipWs,
+    rawjson::RawJson,
     token::ImmediateToken,
     Lexer, MainToken, NumberToken, SingleToken, StringToken,
 };
-use crate::{ast::Value, rawjson::RawJson};
+use crate::ast::Value;
 use anyhow::Context as _;
 use indexmap::IndexMap;
 
