@@ -101,9 +101,10 @@ impl JsonPath {
     /// get ancestors. this method's complexity is **O(`depth`^2)**.
     pub fn ancestors(&self) -> impl Iterator<Item = Self> {
         let origin = self.clone();
-        (0..self.depth()).scan(origin, |a, _| {
+        (0..=self.depth()).scan(origin, |a, _| {
+            let ret = Some(a.clone());
             a.pop();
-            Some(a.clone())
+            ret
         })
     }
 
@@ -199,5 +200,64 @@ mod tests {
         .into_iter()
         .collect();
         assert_eq!(ast_root[&path], Value::String("bar".to_string()));
+    }
+
+    #[test]
+    fn test_vec_like_interface() {
+        let json = r#"{ "key": [ 1, "two", { "foo": "bar" } ] }"#;
+        let ast_root = Value::parse(json).unwrap();
+
+        let mut path: JsonPath = vec![JsonIndexer::ObjInd("key".to_string())].into_iter().collect();
+        assert_eq!(ast_root[&path], Value::parse(r#"[ 1, "two", { "foo": "bar" } ]"#).unwrap());
+        path.push(JsonIndexer::ArrInd(0));
+        assert_eq!(ast_root[&path], Value::parse(r#"1"#).unwrap());
+        path.pop();
+        path.push(JsonIndexer::ArrInd(2));
+        assert_eq!(ast_root[&path], Value::parse(r#"{ "foo": "bar" }"#).unwrap());
+
+        assert!(path.starts_with(&vec![JsonIndexer::ObjInd("key".to_string())].into_iter().collect()));
+        assert!(path
+            .starts_with(&vec![JsonIndexer::ObjInd("key".to_string()), JsonIndexer::ArrInd(2)].into_iter().collect()));
+        assert!(path.ends_with(&vec![JsonIndexer::ArrInd(2)].into_iter().collect()));
+        assert!(
+            path.ends_with(&vec![JsonIndexer::ObjInd("key".to_string()), JsonIndexer::ArrInd(2)].into_iter().collect())
+        );
+    }
+
+    #[test]
+    fn test_path_like_interface() {
+        let json = r#"{ "key": [ 1, "two", { "foo": "bar" } ] }"#;
+        let ast_root = Value::parse(json).unwrap();
+
+        let path1: JsonPath =
+            vec![JsonIndexer::ObjInd("key".to_string()), JsonIndexer::ArrInd(0)].into_iter().collect();
+        let path2: JsonPath = vec![
+            JsonIndexer::ObjInd("key".to_string()),
+            JsonIndexer::ArrInd(2),
+            JsonIndexer::ObjInd("foo".to_string()),
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!((path1.depth(), path2.depth()), (2, 3));
+        assert_eq!(JsonPath::lca(&path1, &path2), vec![JsonIndexer::ObjInd("key".to_string())].into_iter().collect());
+        assert_eq!(
+            ast_root[&JsonPath::lca(&path1, &path2)],
+            Value::parse(r#"[ 1, "two", { "foo": "bar" } ]"#).unwrap()
+        );
+
+        assert_eq!(path1.parent(), Some(vec![JsonIndexer::ObjInd("key".to_string())].into_iter().collect()));
+        assert!(path1
+            .ancestors()
+            .zip(vec![
+                vec![JsonIndexer::ObjInd("key".to_string()), JsonIndexer::ArrInd(0)].into_iter().collect(),
+                vec![JsonIndexer::ObjInd("key".to_string())].into_iter().collect(),
+                vec![].into_iter().collect(),
+            ])
+            .all(|(r, e)| r == e));
+
+        let pa = JsonPath::from(&vec![JsonIndexer::ObjInd("key".to_string())][..]);
+        let pb = JsonPath::from(&vec![JsonIndexer::ArrInd(2)][..]);
+        assert_eq!(pa.join(&pb), JsonPath::from(&[JsonIndexer::ObjInd("key".to_string()), JsonIndexer::ArrInd(2)][..]));
+        assert_eq!(ast_root[&pa.join(&pb)], Value::parse(r#"{ "foo": "bar" }"#).unwrap());
     }
 }
