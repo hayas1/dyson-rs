@@ -37,6 +37,22 @@ impl JsonIndex for &JsonPath {
     }
 }
 
+/// [`JsonPath`] has `Vec` like interface.
+/// # examples
+/// ```
+/// use dyson::{Value, JsonIndexer, JsonPath};
+/// let raw_json = r#"{ "key": [ 1, "two", { "foo": "bar" } ] }"#;
+/// let json = Value::parse(raw_json).unwrap();
+///
+/// let mut path = JsonPath::new();
+/// println!("{}", path); // (empty path)
+/// println!("{}", json[&path]); // {"key":[1,"two",{"foo":"bar"}]}
+///
+/// path.push(JsonIndexer::ObjInd("key".to_string()));
+/// path.push(JsonIndexer::ArrInd(2));
+/// println!("{}", path); // "key">2
+/// println!("{}", json[&path]); // {"foo":"bar"}
+/// ```
 impl JsonPath {
     pub fn new() -> Self {
         Self { path: Vec::new() }
@@ -78,6 +94,26 @@ impl JsonPath {
         self.path.ends_with(&suffix.path)
     }
 }
+/// [`JsonPath`] has `Path` like interface.
+/// # examples
+/// ```
+/// use dyson::{Value, JsonIndexer, JsonPath};
+/// let raw_json = r#"{ "key": [ 1, "two", { "foo": "bar" } ] }"#;
+/// let json = Value::parse(raw_json).unwrap();
+///
+/// let path_foo: JsonPath = vec![JsonIndexer::ObjInd("key".to_string()), JsonIndexer::ArrInd(2)].into_iter().collect();
+/// println!("{}", path_foo); // "key">2
+/// println!("{}", path_foo.depth()); // 2
+/// println!("{}", json[&path_foo]); // {"foo":"bar"}
+///
+/// let path_bar = path_foo.join(&JsonPath::from(&vec![JsonIndexer::ObjInd("foo".to_string())][..]));
+/// println!("{}", path_bar); // "key">2>"foo"
+/// println!("{}", path_bar.depth()); // 3
+/// println!("{}", json[&path_bar]); // "bar"
+///
+/// assert_eq!(path_bar.parent(), Some(path_foo.clone()));
+/// assert_eq!(JsonPath::lca(&path_foo, &path_bar), path_foo);
+/// ```
 impl JsonPath {
     /// get depth.
     pub fn depth(&self) -> usize {
