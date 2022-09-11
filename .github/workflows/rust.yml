@@ -22,6 +22,7 @@ jobs:
   doc:
     runs-on: ubuntu-latest
     needs: build
+    if: github.event_name == 'push'
     steps:
     - uses: actions/checkout@v3
     - name: Run doc
@@ -32,16 +33,16 @@ jobs:
         path: target/doc
 
   deploy:
-     needs: doc
-     if: github.event_name == 'push'
-     permissions:
-       pages: write
-       id-token: write
-     environment:
-       name: github-pages
-       url: ${{ steps.deployment.outputs.page_url }}
-     runs-on: ubuntu-latest
-     steps:
-       - name: Deploy to GitHub Pages
-         id: deployment
-         uses: actions/deploy-pages@v1
+    needs: doc
+    if: github.event_name == 'push'
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1
