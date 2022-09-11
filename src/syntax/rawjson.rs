@@ -1,4 +1,4 @@
-use std::{ops::Index, slice::SliceIndex, vec::IntoIter};
+// use std::{ops::Index, slice::SliceIndex, vec::IntoIter};
 
 /// [`RawJson`] represent raw json string sequence.
 /// each sequence is terminated in line feed `'\n'`.
@@ -85,13 +85,13 @@ impl From<RawJson> for String {
 
 impl IntoIterator for RawJson {
     type Item = Vec<char>;
-    type IntoIter = IntoIter<Self::Item>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
     fn into_iter(self) -> Self::IntoIter {
         self.json.into_iter()
     }
 }
 
-impl<I: SliceIndex<[Vec<char>]>> Index<I> for RawJson {
+impl<I: std::slice::SliceIndex<[Vec<char>]>> std::ops::Index<I> for RawJson {
     type Output = I::Output;
     fn index(&self, index: I) -> &Self::Output {
         &self.json[index]

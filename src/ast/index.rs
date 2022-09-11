@@ -1,8 +1,4 @@
 use super::Value;
-use std::{
-    ops::{Index, IndexMut},
-    slice::SliceIndex,
-};
 
 impl Value {
     /// access json value, and get reference of it. see indexing [`Ranger`] also.
@@ -125,7 +121,7 @@ impl JsonIndex for usize {
         }
     }
 }
-impl<R: SliceIndex<[Value]>> JsonIndex for Ranger<R> {
+impl<R: std::slice::SliceIndex<[Value]>> JsonIndex for Ranger<R> {
     type Output = R::Output;
     fn gotten(self, value: &Value) -> Option<&Self::Output> {
         match value {
@@ -199,13 +195,13 @@ impl JsonIndex for JsonIndexer {
     }
 }
 
-impl<'a, I: JsonIndex> Index<I> for Value {
+impl<'a, I: JsonIndex> std::ops::Index<I> for Value {
     type Output = I::Output;
     fn index(&self, index: I) -> &Self::Output {
         index.indexed(self)
     }
 }
-impl<'a, I: JsonIndex> IndexMut<I> for Value {
+impl<'a, I: JsonIndex> std::ops::IndexMut<I> for Value {
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         index.indexed_mut(self)
     }

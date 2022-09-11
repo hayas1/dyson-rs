@@ -3,7 +3,6 @@ use super::{
     quote, Value,
 };
 use itertools::Itertools;
-use std::iter::FromIterator;
 
 /// [`JsonPath`] is used for accessing [`Value`]. see [`Value::get`] also.
 /// # examples
