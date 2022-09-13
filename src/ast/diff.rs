@@ -119,6 +119,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::single_char_pattern)]
     fn test_diff_value_detail_json() {
         let json1 = [
             r#"{"#,

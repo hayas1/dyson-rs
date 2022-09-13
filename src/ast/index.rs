@@ -195,13 +195,13 @@ impl JsonIndex for JsonIndexer {
     }
 }
 
-impl<'a, I: JsonIndex> std::ops::Index<I> for Value {
+impl<I: JsonIndex> std::ops::Index<I> for Value {
     type Output = I::Output;
     fn index(&self, index: I) -> &Self::Output {
         index.indexed(self)
     }
 }
-impl<'a, I: JsonIndex> std::ops::IndexMut<I> for Value {
+impl<I: JsonIndex> std::ops::IndexMut<I> for Value {
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         index.indexed_mut(self)
     }

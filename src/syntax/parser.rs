@@ -189,7 +189,7 @@ impl<'a> Parser<'a> {
             ParseStringError::UnexpectedEof { comp: hex4.clone(), start, end: eof }
         })?;
         let uc = char::from_u32(u32::from_str_radix(&hex4, 16)?);
-        Ok(uc.ok_or_else(|| ParseStringError::CannotConvertUnicode { uc: hex4, start, end: p })?)
+        Ok(uc.ok_or(ParseStringError::CannotConvertUnicode { uc: hex4, start, end: p })?)
     }
 
     /// parse `number` of json. the following ebnf is not precise.<br>

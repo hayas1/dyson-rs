@@ -15,7 +15,7 @@ use itertools::Itertools;
 ///     vec![JsonIndexer::ObjInd("key".to_string()), JsonIndexer::ArrInd(0)].into_iter().collect::<JsonPath>();
 /// assert_eq!(json[&path], Value::Integer(1));
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Hash)]
 pub struct JsonPath {
     path: Vec<JsonIndexer>,
 }
@@ -54,7 +54,7 @@ impl JsonIndex for &JsonPath {
 /// ```
 impl JsonPath {
     pub fn new() -> Self {
-        Self { path: Vec::new() }
+        Self::default()
     }
     pub fn push(&mut self, indexer: JsonIndexer) {
         self.path.push(indexer)
@@ -68,10 +68,10 @@ impl JsonPath {
     pub fn get_mut(&mut self, index: usize) -> Option<&mut JsonIndexer> {
         self.path.get_mut(index)
     }
-    pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, JsonIndexer> {
+    pub fn iter(&self) -> std::slice::Iter<'_, JsonIndexer> {
         self.path.iter()
     }
-    pub fn iter_mut<'a>(&'a mut self) -> std::slice::IterMut<'a, JsonIndexer> {
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, JsonIndexer> {
         self.path.iter_mut()
     }
     pub fn last(&self) -> Option<&JsonIndexer> {
@@ -149,13 +149,13 @@ impl JsonPath {
     }
 }
 
-impl<'a> std::ops::Index<usize> for JsonPath {
+impl std::ops::Index<usize> for JsonPath {
     type Output = JsonIndexer;
     fn index(&self, index: usize) -> &Self::Output {
         &self.path[index]
     }
 }
-impl<'a> std::ops::IndexMut<usize> for JsonPath {
+impl std::ops::IndexMut<usize> for JsonPath {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.path[index]
     }
@@ -177,9 +177,9 @@ impl FromIterator<JsonIndexer> for JsonPath {
         Self { path: iter.into_iter().collect() }
     }
 }
-impl Into<Vec<JsonIndexer>> for JsonPath {
-    fn into(self) -> Vec<JsonIndexer> {
-        self.path
+impl From<JsonPath> for Vec<JsonIndexer> {
+    fn from(jp: JsonPath) -> Self {
+        jp.path
     }
 }
 impl<'a> IntoIterator for &'a JsonPath {
@@ -189,7 +189,7 @@ impl<'a> IntoIterator for &'a JsonPath {
         // FIXME why cannot compile?
         // type IntoIter = std::slice::Iter<'a, Self::Item>;
         // (&self.path).into_iter()
-        (&self.path).into_iter().map(|x| x).collect_vec().into_iter()
+        (&self.path).iter().collect_vec().into_iter()
     }
 }
 impl IntoIterator for JsonPath {
@@ -210,12 +210,6 @@ impl std::fmt::Display for JsonPath {
             })
             .join(">");
         write!(f, "{}", path)
-    }
-}
-
-impl std::hash::Hash for JsonPath {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.to_string().hash(state)
     }
 }
 
