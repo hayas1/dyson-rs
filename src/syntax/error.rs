@@ -103,6 +103,13 @@ mod tests {
     use crate::ast::Value;
 
     #[test]
+    fn test_parse_empty() {
+        let empty = "";
+        let err = Value::parse(empty).unwrap_err();
+        assert!(err.to_string().contains("token"));
+    }
+
+    #[test]
     fn test_parse_double() {
         let double = "{{}}";
         let err = Value::parse(double).unwrap_err();
