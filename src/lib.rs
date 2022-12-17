@@ -1,13 +1,13 @@
 //! `dyson` is a dynamic json parser library.
 //! use dyson, no need to define json scheme in advance.
 //!
-//! see [github](https://github.com/hayas1/dyson) also.
+//! see [github](https://github.com/hayas1/dyson-rs) also.
 //!
 //! # usage
 //! in `Cargo.toml`
 //! ```toml
 //! [dependencies]
-//!     dyson = { git = "https://github.com/hayas1/dyson" }
+//!     dyson = { git = "https://github.com/hayas1/dyson-rs" }
 //! ```
 //!
 //! # examples

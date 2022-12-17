@@ -1,18 +1,18 @@
-# dyson ![rust 1.61](https://github.com/hayas1/dyson/actions/workflows/rust.yml/badge.svg)
-dynamic json parser (more, see [document](https://hayas1.github.io/dyson/dyson/)).
+# dyson ![rust 1.61](https://github.com/hayas1/dyson-rs/actions/workflows/rust.yml/badge.svg)
+dynamic json parser (more, see [document](https://hayas1.github.io/dyson-rs/dyson/)).
 
 # usage
 ## lib
 in `Cargo.toml`.
 ```toml
 [dependencies]
-    dyson = { git = "https://github.com/hayas1/dyson" }
+    dyson = { git = "https://github.com/hayas1/dyson-rs" }
 ```
 
 ## cli
 ### install
 ```sh
-$ cargo install --git https://github.com/hayas1/dyson
+$ cargo install --git https://github.com/hayas1/dyson-rs
 ```
 ### uninstall
 ```sh
@@ -20,7 +20,7 @@ $ cargo uninstall dyson
 ```
 # examples
 ## lib
-more detail, see [document](https://hayas1.github.io/dyson/dyson/).
+more detail, see [document](https://hayas1.github.io/dyson-rs/dyson/).
 ```rust
 // `path/to/read.json`
 // {
