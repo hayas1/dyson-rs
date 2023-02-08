@@ -14,8 +14,8 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = "1.0"
-indexmap = "1.9.1"
 itertools = "0.10.3"
+linked-hash-map = "0.5.6"
 thiserror = "1.0"
 
 atty = "0.2"
