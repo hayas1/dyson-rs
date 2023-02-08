@@ -106,4 +106,20 @@ mod tests {
 
         assert_eq!(json, Value::parse(r#"{"key": [1, 2, 3, 4], "foo": {"bar": "baz"}}"#).unwrap());
     }
+
+    #[test]
+    fn test_insertion_order() {
+        let raw = r#"{"foo": "hoge", "bar": "fuga", "baz": "piyo"}"#;
+        let mut json = Value::parse(raw).unwrap();
+
+        json.update_with(|val| {
+            let mut cloned = val.object().clone();
+            cloned.remove("bar");
+            cloned.insert("one".to_string(), Value::from(1));
+            cloned.insert("baz".to_string(), Value::from("piyo"));
+            Value::from(cloned)
+        });
+
+        assert_eq!(json.to_string(), r#"{"foo":"hoge","one":1,"baz":"piyo"}"#)
+    }
 }

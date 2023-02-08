@@ -10,7 +10,7 @@ use super::{
 };
 use crate::ast::Value;
 use anyhow::Context as _;
-use indexmap::IndexMap;
+use linked_hash_map::LinkedHashMap;
 
 pub struct Parser<'a> {
     pub(crate) lexer: Lexer<'a>,
@@ -52,7 +52,7 @@ impl<'a> Parser<'a> {
     /// parse `object` of json. the following ebnf is not precise.<br>
     /// `object` := "{" { `string` ":" `value` \[ "," \] }  "}"
     pub fn parse_object(&mut self) -> anyhow::Result<Value> {
-        let mut object = IndexMap::new();
+        let mut object = LinkedHashMap::new();
         let (_, _left_brace) = self.lexer.lex_1_char::<_, SkipWs<true>>(MainToken::LeftBrace)?;
         while !self.lexer.is_next::<_, SkipWs<true>>(MainToken::RightBrace) {
             if self.lexer.is_next::<_, SkipWs<true>>(MainToken::Quotation) {
@@ -304,7 +304,7 @@ mod tests {
         let mut parser = Parser::new(&empty);
         let object = parser.parse_object();
         if let Value::Object(m) = object.unwrap() {
-            assert_eq!(m, IndexMap::new());
+            assert_eq!(m, LinkedHashMap::new());
         } else {
             unreachable!("\"{{}}\" must be parsed as empty object");
         }
