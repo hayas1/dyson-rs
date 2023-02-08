@@ -6,7 +6,7 @@ pub mod into;
 pub mod io;
 pub mod visit;
 
-use indexmap::IndexMap;
+use linked_hash_map::LinkedHashMap;
 
 /// [`Value`] is ast node of json. see [Introducing JSON](https://www.json.org/json-en.html) also.
 /// # supports
@@ -56,7 +56,7 @@ use indexmap::IndexMap;
 #[derive(PartialEq, Debug, Clone)]
 pub enum Value {
     /// correspond to object of json. object can be represented by `HashMap` in rust.
-    Object(IndexMap<String, Value>),
+    Object(LinkedHashMap<String, Value>),
 
     /// correspond to array of json. array can be represented by `Vec` in rust.
     Array(Vec<Value>),

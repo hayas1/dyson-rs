@@ -5,7 +5,7 @@ pub struct DfsVisitor<'a> {
     first: Option<&'a Value>,
 }
 enum ValueIterator<'a> {
-    ObjectIterator(indexmap::map::Iter<'a, String, Value>),
+    ObjectIterator(linked_hash_map::Iter<'a, String, Value>),
     ArrayIterator(std::slice::Iter<'a, Value>),
 }
 #[derive(Debug, PartialEq)]
