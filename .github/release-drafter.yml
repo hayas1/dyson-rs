@@ -50,6 +50,9 @@ autolabeler:
     branch:
       - '/ci[/-].+/'
       - '/workflow[/-].+/'
+  - label: dependencies
+    branch:
+      - '/dependencies[/-].+/'
 
 template: |
   ## Changes
