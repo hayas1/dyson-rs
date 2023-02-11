@@ -1,4 +1,4 @@
-use super::{token::SequentialToken, SingleToken, StringToken};
+use super::token::{SequentialToken, SingleToken, StringToken};
 use thiserror::Error;
 
 pub type Position = (usize, usize);

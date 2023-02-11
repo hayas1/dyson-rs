@@ -1,5 +1,5 @@
 use super::Value;
-use crate::syntax::{error::StructureError, rawjson::RawJson, Parser};
+use crate::syntax::{error::StructureError, parser::Parser, rawjson::RawJson};
 use std::{
     fs::File,
     io::{BufRead, BufReader, BufWriter, Read, Write},
