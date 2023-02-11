@@ -3,10 +3,9 @@ use super::{
         ParseNumberError, ParseStringError, ParseValueError, Position, SequentialTokenError, SingleTokenError,
         StructureError,
     },
-    lexer::SkipWs,
+    lexer::{Lexer, SkipWs},
     rawjson::RawJson,
-    token::ImmediateToken,
-    Lexer, MainToken, NumberToken, SingleToken, StringToken,
+    token::{ImmediateToken, MainToken, NumberToken, SingleToken, StringToken},
 };
 use crate::ast::Value;
 use anyhow::Context as _;

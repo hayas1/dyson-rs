@@ -1,9 +1,5 @@
 pub(crate) mod error;
-mod lexer;
-mod parser;
+pub(crate) mod lexer;
+pub(crate) mod parser;
 pub mod rawjson;
-mod token;
-
-pub use lexer::Lexer;
-pub use parser::Parser;
-pub use token::{MainToken, NumberToken, SingleToken, StringToken};
+pub(crate) mod token;
