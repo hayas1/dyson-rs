@@ -1,5 +1,5 @@
 use super::Value;
-use crate::syntax::{error::StructureError, parser::Parser, rawjson::RawJson};
+use crate::syntax::{error::StructureError, lexer::Lexer, parser::Parser, rawjson::RawJson};
 use std::{
     fs::File,
     io::{BufRead, BufReader, BufWriter, Read, Write},
@@ -27,11 +27,11 @@ impl Value {
     /// ```
     pub fn parse<J: Into<RawJson>>(j: J) -> anyhow::Result<Value> {
         let json = j.into();
-        let mut parser = Parser::new(&json);
-        let result = parser.parse_value();
+        let (mut lexer, parser) = (Lexer::new(&json), Parser::new());
+        let result = parser.parse_value(&mut lexer);
         if result.is_ok() {
-            if let Some(&(p, _)) = parser.lexer.skip_whitespace() {
-                let eof = parser.lexer.json.eof();
+            if let Some(&(p, _)) = lexer.skip_whitespace() {
+                let eof = lexer.json.eof();
                 return Err(StructureError::FoundSurplus { start: p, end: eof })?;
             }
         }
