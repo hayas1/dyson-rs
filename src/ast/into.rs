@@ -345,12 +345,11 @@ impl FromIterator<Value> for Value {
 
 #[cfg(test)]
 mod tests {
-    use crate::syntax::parser::Parser;
+    use crate::{syntax::parser::Parser, Value};
 
     #[test]
     fn test_into_bool_json() {
-        let tru = "true".into();
-        let tru_ast = Parser::new(&tru).parse_bool().unwrap();
+        let tru_ast = Value::Bool(true);
         let t: &bool = (&tru_ast).into();
         assert_eq!(t, &true);
         let t: bool = tru_ast.into();
@@ -359,8 +358,7 @@ mod tests {
 
     #[test]
     fn test_into_string_json() {
-        let string = "\"rust\"".into();
-        let string_ast = Parser::new(&string).parse_string().unwrap();
+        let string_ast = Value::String("rust".into());
         let s: &str = (&string_ast).into();
         assert_eq!(s, "rust");
         let s: String = string_ast.into();
@@ -369,8 +367,7 @@ mod tests {
 
     #[test]
     fn test_into_integer_json() {
-        let hundred = "100".into();
-        let hundred_ast = Parser::new(&hundred).parse_number().unwrap();
+        let hundred_ast = Value::Integer(100);
         let i: &i64 = (&hundred_ast).into();
         assert_eq!(i, &100);
         let i: i64 = hundred_ast.into();
@@ -379,8 +376,7 @@ mod tests {
 
     #[test]
     fn test_into_float_json() {
-        let quarter = "0.25".into();
-        let quarter_ast = Parser::new(&quarter).parse_number().unwrap();
+        let quarter_ast = Value::Float(0.25);
         let f: &f64 = (&quarter_ast).into();
         assert_eq!(f, &0.25);
         let f: f64 = quarter_ast.into();
