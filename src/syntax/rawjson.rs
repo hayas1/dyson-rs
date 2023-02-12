@@ -1,4 +1,4 @@
-// use std::{ops::Index, slice::SliceIndex, vec::IntoIter};
+use super::lexer::Lexer;
 
 /// [`RawJson`] represent raw json string sequence.
 /// each sequence is terminated in line feed `'\n'`.
@@ -28,14 +28,19 @@ impl RawJson {
         self.rows() == 0
     }
 
-    /// get first element and its position
-    pub fn first(&self) -> Option<((usize, usize), char)> {
-        (!self.is_empty()).then(|| ((0, 0), self[0][0]))
+    /// get char in row i, column j
+    pub fn get(&self, i: usize, j: usize) -> Option<&char> {
+        self.json.get(i).and_then(|row| row.get(j))
     }
 
     /// get iterator of raw json
     pub fn iter(&self) -> impl Iterator<Item = &Vec<char>> {
         self.json.iter()
+    }
+
+    /// get lexer of raw json
+    pub fn lexer(&self) -> Lexer {
+        Lexer::new(self)
     }
 }
 
