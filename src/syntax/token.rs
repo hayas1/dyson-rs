@@ -1,143 +1,131 @@
-use std::fmt::{Debug, Display};
+use super::error::TokenizeError;
 
-pub trait SingleToken: PartialEq + Eq + Display + Debug + Clone + Send + Sync {
-    fn tokenize(c: char) -> Self;
-}
-pub trait SequentialToken: SingleToken {
-    fn confirm(s: &str) -> Self;
-    fn tokenize(c: char) -> Self {
-        SingleToken::tokenize(c)
+// TODO remove unused trait bound
+pub trait LL1Token: PartialEq + Eq + Clone + Send + Sync {
+    type Error; // TODO? 'static + Send + Sync + Error
+    fn lookahead(c: char) -> Result<Self, Self::Error>;
+    fn tokenize(s: &str) -> Result<Self, Self::Error>;
+    fn is_whitespace(c: char) -> bool {
+        matches!(JsonToken::lookahead(c), Ok(JsonToken::Whitespace))
     }
 }
 
-#[derive(PartialEq, Eq, Clone)]
-pub enum MainToken {
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum JsonToken {
     LeftBrace,
     RightBrace,
     LeftBracket,
     RightBracket,
     Colon,
     Comma,
-    Quotation,
-    Digit(char),
-    Plus,
-    Minus,
-    Dot,
+    // Quotation,
+    // Plus,
+    // Minus,
+    // Dot,
     Whitespace,
-    Eof,
-    Undecided(char),
+    Number(NumberToken),
+    Immediate(ImmediateToken),
+    String(EscapedStringToken),
 }
-impl std::fmt::Display for MainToken {
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum TokenWithComment {
+    MainToken(JsonToken),
+    DoubleSlash,
+    CommentContent,
+}
+
+// pub trait SingleToken: PartialEq + Eq + Display + Debug + Clone + Send + Sync {
+//     fn tokenize(c: char) -> Self;
+// }
+// pub trait SequentialToken: SingleToken {
+//     fn confirm(s: &str) -> Self;
+//     fn tokenize(c: char) -> Self {
+//         SingleToken::tokenize(c)
+//     }
+// }
+
+impl std::fmt::Display for JsonToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MainToken::LeftBrace => write!(f, "{{"),
-            MainToken::RightBrace => write!(f, "}}"),
-            MainToken::LeftBracket => write!(f, "["),
-            MainToken::RightBracket => write!(f, "]"),
-            MainToken::Colon => write!(f, ":"),
-            MainToken::Comma => write!(f, ","),
-            MainToken::Quotation => write!(f, "\""),
-            MainToken::Digit(c) => write!(f, "{}", c),
-            MainToken::Plus => write!(f, "+"),
-            MainToken::Minus => write!(f, "-"),
-            MainToken::Dot => write!(f, "."),
-            MainToken::Whitespace => write!(f, " "),
-            MainToken::Eof => write!(f, "\\0"),
-            MainToken::Undecided(c) => write!(f, "{}", c),
+            Self::LeftBrace => write!(f, "{{"),
+            Self::RightBrace => write!(f, "}}"),
+            Self::LeftBracket => write!(f, "["),
+            Self::RightBracket => write!(f, "]"),
+            Self::Colon => write!(f, ":"),
+            Self::Comma => write!(f, ","),
+            // Self::Quotation => write!(f, "\""),
+            // Self::Plus => write!(f, "+"),
+            // Self::Minus => write!(f, "-"),
+            // Self::Dot => write!(f, "."),
+            Self::Whitespace => write!(f, " "),
+            Self::Number(t) => write!(f, "{}", t),
+            Self::Immediate(t) => write!(f, "{}", t),
+            Self::String(t) => write!(f, "{}", t),
         }
     }
 }
-impl std::fmt::Debug for MainToken {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::LeftBrace => write!(f, "LeftBrace({})", self),
-            Self::RightBrace => write!(f, "RightBrace({})", self),
-            Self::LeftBracket => write!(f, "LeftBracket({})", self),
-            Self::RightBracket => write!(f, "RightBracket({})", self),
-            Self::Colon => write!(f, "Colon({})", self),
-            Self::Comma => write!(f, "Comma({})", self),
-            Self::Quotation => write!(f, "Quotation({})", self),
-            Self::Digit(_) => write!(f, "Digit({})", self),
-            Self::Plus => write!(f, "Plus({})", self),
-            Self::Minus => write!(f, "Minus({})", self),
-            Self::Dot => write!(f, "Dot({})", self),
-            Self::Whitespace => write!(f, "Whitespace({})", self),
-            Self::Eof => write!(f, "Eof({})", self),
-            Self::Undecided(_) => write!(f, "Undecided({})", self),
-        }
-    }
-}
-impl SingleToken for MainToken {
-    fn tokenize(c: char) -> Self {
+impl LL1Token for JsonToken {
+    type Error = TokenizeError;
+    fn lookahead(c: char) -> Result<Self, Self::Error> {
         match c {
-            '{' => Self::LeftBrace,
-            '}' => Self::RightBrace,
-            '[' => Self::LeftBracket,
-            ']' => Self::RightBracket,
-            ':' => Self::Colon,
-            ',' => Self::Comma,
-            '"' => Self::Quotation,
-            '0'..='9' => Self::Digit(c),
-            '+' => Self::Plus,
-            '-' => Self::Minus,
-            '.' => Self::Dot,
-            ' ' | '\n' | '\r' | '\t' => Self::Whitespace,
-            c => Self::Undecided(c),
+            '{' => Ok(Self::LeftBrace),
+            '}' => Ok(Self::RightBrace),
+            '[' => Ok(Self::LeftBracket),
+            ']' => Ok(Self::RightBracket),
+            ':' => Ok(Self::Colon),
+            ',' => Ok(Self::Comma),
+            // '"' => Ok(Self::Quotation),
+            // '+' => Ok(Self::Plus),
+            // '-' => Ok(Self::Minus),
+            // '.' => Ok(Self::Dot),
+            ' ' | '\n' | '\r' | '\t' => Ok(Self::Whitespace),
+            '+' | '-' | '.' | '0'..='9' => Ok(Self::Number(NumberToken::lookahead(c)?)),
+            '"' => Ok(Self::String(EscapedStringToken::lookahead(c)?)),
         }
+    }
+    fn tokenize(s: &str) -> Result<Self, Self::Error> {
+        Err(TokenizeError::InvalidTokenize { s: s.to_string(), token_type: std::any::type_name::<Self>().to_string() })
     }
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ImmediateToken {
     True,
     False,
     Null,
-    Undecided(char),
-    Unexpected(String),
 }
 impl std::fmt::Display for ImmediateToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ImmediateToken::True => write!(f, "true"),
-            ImmediateToken::False => write!(f, "false"),
-            ImmediateToken::Null => write!(f, "null"),
-            ImmediateToken::Undecided(c) => write!(f, "{}", c),
-            ImmediateToken::Unexpected(s) => write!(f, "{}", s),
+            Self::True => write!(f, "true"),
+            Self::False => write!(f, "false"),
+            Self::Null => write!(f, "null"),
         }
     }
 }
-impl std::fmt::Debug for ImmediateToken {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::True => write!(f, "True({})", self),
-            Self::False => write!(f, "False({})", self),
-            Self::Null => write!(f, "Null({})", self),
-            Self::Undecided(_) => write!(f, "Undecided({})", self),
-            Self::Unexpected(_) => write!(f, "Unexpected({})", self),
-        }
-    }
-}
-impl SingleToken for ImmediateToken {
-    fn tokenize(c: char) -> Self {
+impl LL1Token for ImmediateToken {
+    type Error = TokenizeError;
+    fn lookahead(c: char) -> Result<Self, Self::Error> {
         match c {
-            't' | 'f' | 'n' => Self::Undecided(c),
-            c => Self::Unexpected(c.to_string()),
+            't' => Ok(Self::True),
+            'f' => Ok(Self::False),
+            'n' => Ok(Self::Null),
+            _ => Err(TokenizeError::UnmatchedTokenPrefix { c, token_type: std::any::type_name::<Self>().to_string() }),
         }
     }
-}
-impl SequentialToken for ImmediateToken {
-    fn confirm(s: &str) -> Self {
+    fn tokenize(s: &str) -> Result<Self, Self::Error> {
         match s {
-            "true" => Self::True,
-            "false" => Self::False,
-            "null" => Self::Null,
-            s => Self::Unexpected(s.to_string()),
+            "true" => Ok(Self::True),
+            "false" => Ok(Self::False),
+            "null" => Ok(Self::Null),
+            _ => Err(TokenizeError::UnmatchedToken { s: s.to_string() }),
         }
     }
 }
 
-#[derive(PartialEq, Eq, Clone)]
-pub enum StringToken {
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum EscapedStringToken {
     Quotation,
     ReverseSolidus,
     Solidus,
@@ -148,81 +136,59 @@ pub enum StringToken {
     HorizontalTab,
     Unicode,
     Hex4Digits(String),
-    Undecided(char),
-    Unexpected(String),
 }
-impl std::fmt::Display for StringToken {
+impl std::fmt::Display for EscapedStringToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            StringToken::Quotation => write!(f, "\""),
-            StringToken::ReverseSolidus => write!(f, "\\"),
-            StringToken::Solidus => write!(f, "/"),
-            StringToken::Backspace => write!(f, "\\b"),
-            StringToken::Formfeed => write!(f, "\\f"),
-            StringToken::Linefeed => write!(f, "\\n"),
-            StringToken::CarriageReturn => write!(f, "\\r"),
-            StringToken::HorizontalTab => write!(f, "\\t"),
-            StringToken::Unicode => write!(f, "\\u"),
-            StringToken::Hex4Digits(s) => write!(f, "{}", s),
-            StringToken::Undecided(s) => write!(f, "{}", s),
-            StringToken::Unexpected(s) => write!(f, "{}", s),
+            Self::Quotation => write!(f, "\""),
+            Self::ReverseSolidus => write!(f, "\\"),
+            Self::Solidus => write!(f, "/"),
+            Self::Backspace => write!(f, "\\b"),
+            Self::Formfeed => write!(f, "\\f"),
+            Self::Linefeed => write!(f, "\\n"),
+            Self::CarriageReturn => write!(f, "\\r"),
+            Self::HorizontalTab => write!(f, "\\t"),
+            Self::Unicode => write!(f, "\\u"),
+            Self::Hex4Digits(s) => write!(f, "{}", s),
         }
     }
 }
-impl std::fmt::Debug for StringToken {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Quotation => write!(f, "Quotation({})", self),
-            Self::ReverseSolidus => write!(f, "ReverseSolidus({})", self),
-            Self::Solidus => write!(f, "Solidus({})", self),
-            Self::Backspace => write!(f, "Backspace({})", self),
-            Self::Formfeed => write!(f, "Formfeed({})", self),
-            Self::Linefeed => write!(f, "Linefeed({})", self),
-            Self::CarriageReturn => write!(f, "CarriageReturn({})", self),
-            Self::HorizontalTab => write!(f, "HorizontalTab({})", self),
-            Self::Unicode => write!(f, "Unicode({})", self),
-            Self::Hex4Digits(_) => write!(f, "Unicode({})", self),
-            Self::Undecided(_) => write!(f, "Undecided({})", self),
-            Self::Unexpected(_) => write!(f, "Unexpected({})", self),
-        }
-    }
-}
-impl SingleToken for StringToken {
-    fn tokenize(c: char) -> Self {
+impl LL1Token for EscapedStringToken {
+    type Error = TokenizeError;
+    fn lookahead(c: char) -> Result<Self, Self::Error> {
         match c {
-            '"' => Self::Quotation,
-            '\\' => Self::ReverseSolidus,
-            '/' => Self::Solidus,
-            'b' => Self::Backspace,
-            'f' => Self::Formfeed,
-            'n' => Self::Linefeed,
-            'r' => Self::CarriageReturn,
-            't' => Self::HorizontalTab,
-            'u' => Self::Unicode,
-            '0'..='9' | 'a'..='f' | 'A'..='F' => Self::Undecided(c),
-            c => Self::Unexpected(c.to_string()),
+            '"' => Ok(Self::Quotation),
+            '\\' => Ok(Self::ReverseSolidus),
+            '/' => Ok(Self::Solidus),
+            'b' => Ok(Self::Backspace),
+            'f' => Ok(Self::Formfeed),
+            'n' => Ok(Self::Linefeed),
+            'r' => Ok(Self::CarriageReturn),
+            't' => Ok(Self::HorizontalTab),
+            'u' => Ok(Self::Unicode),
+            '0'..='9' | 'a'..='f' | 'A'..='F' => Ok(Self::Hex4Digits(Default::default())),
+            _ => Err(TokenizeError::UnmatchedTokenPrefix { c, token_type: std::any::type_name::<Self>().to_string() }),
         }
     }
-}
-impl SequentialToken for StringToken {
-    fn confirm(s: &str) -> Self {
-        match s {
-            "\\\"" => Self::Quotation,
-            "\\\\" => Self::ReverseSolidus,
-            "/" => Self::Solidus,
-            "\\b" => Self::Backspace,
-            "\\f" => Self::Formfeed,
-            "\\n" => Self::Linefeed,
-            "\\r" => Self::CarriageReturn,
-            "\\t" => Self::HorizontalTab,
-            "\\u" => Self::Unicode,
-            _ if u32::from_str_radix(s, 16).is_ok() => Self::Hex4Digits(s.to_string()),
-            s => Self::Unexpected(s.to_string()),
-        }
+    fn tokenize(s: &str) -> Result<Self, Self::Error> {
+        // match s {
+        //     "\\\"" => Ok(Self::Quotation),
+        //     "\\\\" => Ok(Self::ReverseSolidus),
+        //     "/" => Ok(Self::Solidus),
+        //     "\\b" => Ok(Self::Backspace),
+        //     "\\f" => Ok(Self::Formfeed),
+        //     "\\n" => Ok(Self::Linefeed),
+        //     "\\r" => Ok(Self::CarriageReturn),
+        //     "\\t" => Ok(Self::HorizontalTab),
+        //     "\\u" => Ok(Self::Unicode),
+        //     _ if s.len() == 4 && u32::from_str_radix(s, 16).is_ok() => Ok(Self::Hex4Digits(s.to_string())),
+        //     _ => Err(TokenizeError::UnmatchedToken { s: s.to_string() }),
+        // }
+        Err(TokenizeError::InvalidTokenize { s: s.to_string(), token_type: std::any::type_name::<Self>().to_string() })
     }
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum NumberToken {
     Zero,
     OneNine(char),
@@ -230,7 +196,6 @@ pub enum NumberToken {
     Minus,
     Dot,
     Exponent,
-    Unexpected(char),
 }
 impl std::fmt::Display for NumberToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -241,34 +206,24 @@ impl std::fmt::Display for NumberToken {
             Self::Minus => write!(f, "-"),
             Self::Dot => write!(f, "."),
             Self::Exponent => write!(f, "E"),
-            Self::Unexpected(c) => write!(f, "({})", c),
         }
     }
 }
-impl std::fmt::Debug for NumberToken {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Zero => write!(f, "Zero({})", self),
-            Self::OneNine(_) => write!(f, "OneNine({})", self),
-            Self::Plus => write!(f, "Plus({})", self),
-            Self::Minus => write!(f, "Minus({})", self),
-            Self::Dot => write!(f, "Dot({})", self),
-            Self::Exponent => write!(f, "Exponent({})", self),
-            Self::Unexpected(_) => write!(f, "Unexpected({})", self),
-        }
-    }
-}
-impl SingleToken for NumberToken {
-    fn tokenize(c: char) -> Self {
+impl LL1Token for NumberToken {
+    type Error = TokenizeError;
+    fn lookahead(c: char) -> Result<Self, Self::Error> {
         match c {
-            '0' => Self::Zero,
-            '1'..='9' => Self::OneNine(c),
-            '+' => Self::Plus,
-            '-' => Self::Minus,
-            '.' => Self::Dot,
-            'e' | 'E' => Self::Exponent,
-            c => Self::Unexpected(c),
+            '0' => Ok(Self::Zero),
+            '1'..='9' => Ok(Self::OneNine(c)),
+            '+' => Ok(Self::Plus),
+            '-' => Ok(Self::Minus),
+            '.' => Ok(Self::Dot),
+            'e' | 'E' => Ok(Self::Exponent),
+            _ => Err(TokenizeError::UnmatchedTokenPrefix { c, token_type: std::any::type_name::<Self>().to_string() }),
         }
+    }
+    fn tokenize(s: &str) -> Result<Self, Self::Error> {
+        Err(TokenizeError::InvalidTokenize { s: s.to_string(), token_type: std::any::type_name::<Self>().to_string() })
     }
 }
 
@@ -277,9 +232,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_undecided() {
-        assert_eq!(<ImmediateToken as SingleToken>::tokenize('t'), ImmediateToken::Undecided('t'));
-        assert_eq!(<ImmediateToken as SingleToken>::tokenize('f'), ImmediateToken::Undecided('f'));
-        assert_eq!(<ImmediateToken as SingleToken>::tokenize('n'), ImmediateToken::Undecided('n'));
+    fn test_lookahead() {
+        assert!(matches!(JsonToken::lookahead('{'), Ok(JsonToken::RightBrace)));
+        assert!(matches!(JsonToken::lookahead('f'), Ok(JsonToken::Immediate(ImmediateToken::False))));
+        assert!(matches!(NumberToken::lookahead('+'), Ok(NumberToken::Plus)));
     }
 }
