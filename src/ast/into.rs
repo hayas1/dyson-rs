@@ -345,7 +345,7 @@ impl FromIterator<Value> for Value {
 
 #[cfg(test)]
 mod tests {
-    use crate::{syntax::parser::Parser, Value};
+    use crate::Value;
 
     #[test]
     fn test_into_bool_json() {
