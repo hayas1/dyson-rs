@@ -1,5 +1,5 @@
 use super::{
-    error::ParseTokenError,
+    error::LexTokenError,
     rawjson::RawJson,
     token::{JsonToken, LL1Token},
 };
@@ -52,29 +52,30 @@ impl<'a> Lexer<'a> {
 
     /// read next expected token. if `skip_ws`, this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
     /// if success, lexer cursor move to next, but if error, lexer cursor do not move next (skip whitespace only).
-    pub fn lex_1_char<T, S>(&mut self, token: T) -> anyhow::Result<<Self as Iterator>::Item>
+    pub fn lex_1_char<T, S>(&mut self, expected: T) -> anyhow::Result<<Self as Iterator>::Item>
     where
-        T: 'static + LL1Token,
+        T: std::fmt::Debug + LL1Token,
         S: SkipWhiteSpace,
     {
         if let Some(&(pos, c)) = if S::skip_ws() { self.skip_whitespace() } else { self.peek() } {
-            if T::tokenize(c) != token {
-                Err(SingleTokenError::UnexpectedToken { expected: vec![token], found: T::tokenize(c), pos })?
-            } else {
-                self.next().ok_or_else(|| unreachable!("previous peek ensure this next success"))
+            match T::lookahead(c) {
+                Ok(t) if t == expected => self.next().ok_or_else(|| unreachable!("ensured by previous peek")),
+                Ok(token) => Err(LexTokenError::UnexpectedToken { token, expected, pos })?,
+                Err(error) => Err(LexTokenError::TokenizeError::<T> { error, pos })?,
             }
         } else {
-            Err(SingleTokenError::UnexpectedEof { expected: vec![token], pos: self.json.eof() })?
+            Err(LexTokenError::UnexpectedEof { expected, pos: self.json.eof() })?
         }
     }
 
     /// read next `n` chars ***without*** skipping whitespace until white space. this method's complexity is **O(n)**.
     /// if success, lexer cursor move `n` step, but if error, lexer cursor will stop error ocurred position.
     pub fn lex_n_chars(&mut self, n: usize) -> anyhow::Result<(String, Option<<Self as Iterator>::Item>)> {
+        // HACK this functions is only used by unicode parsing (and parse immediate), so should be refactored
         if n == 0 {
             return Ok((String::new(), self.peek().cloned()));
         }
-        let &(start, _) = self.peek().ok_or_else(|| ParseTokenError::UnexpectedEof {
+        let &(start, _) = self.peek().ok_or_else(|| LexTokenError::EofWhileLex::<JsonToken> {
             found: "".into(),
             start: self.json.eof(),
             end: self.json.eof(),
@@ -82,7 +83,7 @@ impl<'a> Lexer<'a> {
         let mut result = String::new();
         for (p, c) in self.take(n) {
             if JsonToken::is_whitespace(c) {
-                return Err(ParseTokenError::UnexpectedWhiteSpace { found: result, start, end: p })?;
+                return Err(LexTokenError::UnexpectedWhiteSpace::<JsonToken> { found: result, start, end: p })?;
             } else {
                 result.push(c)
             }
@@ -90,34 +91,34 @@ impl<'a> Lexer<'a> {
         if result.len() == n {
             Ok((result, self.peek().cloned()))
         } else {
-            Err(ParseTokenError::UnexpectedEof { found: result, start, end: self.json.eof() })?
+            Err(LexTokenError::EofWhileLex::<JsonToken> { found: result, start, end: self.json.eof() })?
         }
     }
 
     /// read next sequential token with skipping whitespace until line separator.
     /// this method's complexity is **O(len(token))** (see [lex_n_chars](Lexer)).
-    pub fn lex_expected<T>(&mut self, token: T) -> anyhow::Result<Option<<Self as Iterator>::Item>>
+    pub fn lex_expected<T>(&mut self, expected: T) -> anyhow::Result<Option<<Self as Iterator>::Item>>
     where
-        T: 'static + LL1Token,
+        T: std::fmt::Debug + LL1Token,
     {
+        // HACK this functions is only used by parse immediate, so should be refactored
         if let Some(&(start, _)) = self.skip_whitespace() {
-            let (ts, nexted) = self.lex_n_chars(token.to_string().len())?;
-            if T::confirm(&ts) == token {
-                Ok(nexted)
-            } else {
-                let end = nexted.map(|(p, _)| p).unwrap_or_else(|| self.json.eof());
-                Err(SequentialTokenError::UnexpectedToken { expected: vec![token], found: ts, start, end })?
+            let (ts, nexted) = self.lex_n_chars(expected.to_string().len())?;
+            match T::tokenize(&ts) {
+                Ok(t) if t == expected => Ok(nexted),
+                Ok(token) => Err(LexTokenError::UnexpectedToken { token, expected, pos: start })?,
+                Err(error) => Err(LexTokenError::TokenizeError::<T> { error, pos: start })?,
             }
         } else {
-            let eof = self.json.eof();
-            Err(SequentialTokenError::UnexpectedEof { expected: vec![token], start: eof, end: eof })?
+            Err(LexTokenError::UnexpectedEof { expected, pos: self.json.eof() })?
         }
     }
 
     /// peek next token is equal to expected token. if `skip_ws`, this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
-    pub fn is_next<T: LL1Token, S: SkipWhiteSpace>(&mut self, token: T) -> bool {
+    pub fn is_next<T: LL1Token, S: SkipWhiteSpace>(&mut self, expected: T) -> bool {
+        // HACK use peek instead of this
         if S::skip_ws() { self.skip_whitespace() } else { self.peek() }
-            .map(|&(_p, c)| T::tokenize(c) == token)
+            .map(|&(_p, c)| matches!(T::lookahead(c), Ok(e) if e == expected))
             .unwrap_or(false)
     }
 }

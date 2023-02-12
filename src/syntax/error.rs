@@ -8,7 +8,7 @@ pub(crate) fn postr((row, col): &Position) -> String {
 }
 
 pub(crate) fn join_token<'a, I: IntoIterator<Item = &'a T>, T: 'a + LL1Token>(iter: I, sep: &str) -> String {
-    let res = iter.into_iter().map(|x| format!("{:?}", x)).collect::<Vec<_>>().join(sep);
+    let res = iter.into_iter().map(|t| format!("{:?}", t)).collect::<Vec<_>>().join(sep);
     if res.is_empty() {
         "some token".to_string()
     } else {
@@ -28,34 +28,22 @@ pub enum TokenizeError {
     UnmatchedTokenPrefix { c: char, token_type: String },
 }
 
-// #[derive(Error, Debug)]
-// pub enum SingleTokenError<T: SingleToken> {
-//     #[error("{}: expected {}, but found {:?}", postr(pos), join_token(expected, " or "), found)]
-//     UnexpectedToken { expected: Vec<T>, found: T, pos: Position },
-
-//     #[error("{}: expected {}, but found EOF", postr(pos), join_token(expected, " or "))]
-//     UnexpectedEof { expected: Vec<T>, pos: Position },
-// }
-
-// #[derive(Error, Debug)]
-// pub enum SequentialTokenError<T: SequentialToken> {
-//     #[error("{} - {}: expected {}, but found {:?}", postr(start), postr(end), join_token(expected, " or "), found)]
-//     UnexpectedToken { expected: Vec<T>, found: String, start: Position, end: Position },
-
-//     #[error("{} - {}: expected {}, but found EOF", postr(start), postr(end), join_token(expected, " or "))]
-//     UnexpectedEof { expected: Vec<T>, start: Position, end: Position },
-// }
-
 #[derive(Error, Debug)]
-pub enum ParseTokenError {
+pub enum LexTokenError<T: LL1Token> {
     #[error("{}: {}", postr(pos), error)]
-    TokenizeError { error: TokenizeError, pos: Position },
+    TokenizeError { error: T::Error, pos: Position },
+
+    #[error("{}: expected: {:?}, but found {:?}", postr(pos), expected, token)]
+    UnexpectedToken { token: T, expected: T, pos: Position },
 
     #[error("{} - {}: unexpected EOF, unknown token \"{}\"", postr(start), postr(end), if found.is_empty() {"empty string"} else {found})]
     UnexpectedWhiteSpace { found: String, start: Position, end: Position },
 
+    #[error("{}: expected {:?}, but found EOF", postr(pos), expected)]
+    UnexpectedEof { expected: T, pos: Position },
+
     #[error("{} - {}: unexpected EOF, unknown token \"{}\"", postr(start), postr(end), if found.is_empty() {"empty string"} else {found})]
-    UnexpectedEof { found: String, start: Position, end: Position },
+    EofWhileLex { found: String, start: Position, end: Position },
 }
 
 #[derive(Error, Debug)]

@@ -1,8 +1,8 @@
 use super::error::TokenizeError;
 
 // TODO remove unused trait bound
-pub trait LL1Token: PartialEq + Eq + Clone + Send + Sync {
-    type Error; // TODO? 'static + Send + Sync + Error
+pub trait LL1Token: PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + Sized {
+    type Error: std::fmt::Display + std::fmt::Debug + Send + Sync;
     fn lookahead(c: char) -> Result<Self, Self::Error>;
     fn tokenize(s: &str) -> Result<Self, Self::Error>;
     fn is_whitespace(c: char) -> bool {
@@ -27,23 +27,6 @@ pub enum JsonToken {
     Immediate(ImmediateToken),
     String(EscapedStringToken),
 }
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum TokenWithComment {
-    MainToken(JsonToken),
-    DoubleSlash,
-    CommentContent,
-}
-
-// pub trait SingleToken: PartialEq + Eq + Display + Debug + Clone + Send + Sync {
-//     fn tokenize(c: char) -> Self;
-// }
-// pub trait SequentialToken: SingleToken {
-//     fn confirm(s: &str) -> Self;
-//     fn tokenize(c: char) -> Self {
-//         SingleToken::tokenize(c)
-//     }
-// }
 
 impl std::fmt::Display for JsonToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -225,6 +208,14 @@ impl LL1Token for NumberToken {
     fn tokenize(s: &str) -> Result<Self, Self::Error> {
         Err(TokenizeError::InvalidTokenize { s: s.to_string(), token_type: std::any::type_name::<Self>().to_string() })
     }
+}
+
+// TODO implement
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum TokenWithComment {
+    MainToken(JsonToken),
+    DoubleSlash,
+    CommentContent,
 }
 
 #[cfg(test)]
