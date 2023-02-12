@@ -1,10 +1,7 @@
 use super::{
-    error::{
-        ParseNumberError, ParseStringError, ParseValueError, Position, SequentialTokenError, SingleTokenError,
-        StructureError,
-    },
+    error::{ParseNumberError, ParseStringError, ParseValueError, Position, StructureError},
     lexer::{Lexer, SkipWs},
-    token::{ImmediateToken, MainToken, NumberToken, SingleToken, StringToken},
+    token::{EscapedStringToken, ImmediateToken, JsonToken, NumberToken},
 };
 use crate::ast::Value;
 use anyhow::Context as _;
@@ -22,20 +19,20 @@ impl Parser {
     /// parse `value` of json. the following ebnf is not precise.<br>
     /// `value` := `object` | `array` | `bool` | `null` | `string` | `number`;
     pub fn parse_value(&self, lexer: &mut Lexer) -> anyhow::Result<Value> {
-        let examples = || vec![MainToken::LeftBrace, MainToken::Undecided('t'), MainToken::Digit('0')];
+        let examples = || vec![JsonToken::LeftBrace, JsonToken::Undecided('t'), JsonToken::Digit('0')];
         if let Some(&(pos, c)) = lexer.skip_whitespace() {
-            let tokenized = MainToken::tokenize(c);
-            if matches!(tokenized, MainToken::LeftBrace) {
+            let tokenized = JsonToken::tokenize(c);
+            if matches!(tokenized, JsonToken::LeftBrace) {
                 self.parse_object(lexer)
-            } else if matches!(tokenized, MainToken::LeftBracket) {
+            } else if matches!(tokenized, JsonToken::LeftBracket) {
                 self.parse_array(lexer)
-            } else if matches!(tokenized, MainToken::Undecided('t') | MainToken::Undecided('f')) {
+            } else if matches!(tokenized, JsonToken::Undecided('t') | JsonToken::Undecided('f')) {
                 self.parse_bool(lexer)
-            } else if matches!(tokenized, MainToken::Undecided('n')) {
+            } else if matches!(tokenized, JsonToken::Undecided('n')) {
                 self.parse_null(lexer)
-            } else if matches!(tokenized, MainToken::Quotation) {
+            } else if matches!(tokenized, JsonToken::Quotation) {
                 self.parse_string(lexer)
-            } else if matches!(tokenized, MainToken::Minus | MainToken::Digit(_)) {
+            } else if matches!(tokenized, JsonToken::Minus | JsonToken::Digit(_)) {
                 self.parse_number(lexer)
             } else {
                 Err(ParseValueError::CannotStartParseValue { examples: examples(), found: tokenized, pos })?
@@ -50,16 +47,16 @@ impl Parser {
     /// `object` := "{" { `string` ":" `value` \[ "," \] }  "}"
     pub fn parse_object(&self, lexer: &mut Lexer) -> anyhow::Result<Value> {
         let mut object = LinkedHashMap::new();
-        let (_, _left_brace) = lexer.lex_1_char::<_, SkipWs<true>>(MainToken::LeftBrace)?;
-        while !lexer.is_next::<_, SkipWs<true>>(MainToken::RightBrace) {
-            if lexer.is_next::<_, SkipWs<true>>(MainToken::Quotation) {
+        let (_, _left_brace) = lexer.lex_1_char::<_, SkipWs<true>>(JsonToken::LeftBrace)?;
+        while !lexer.is_next::<_, SkipWs<true>>(JsonToken::RightBrace) {
+            if lexer.is_next::<_, SkipWs<true>>(JsonToken::Quotation) {
                 let key = self.parse_string(lexer)?;
-                lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Colon)?;
+                lexer.lex_1_char::<_, SkipWs<true>>(JsonToken::Colon)?;
                 let value = self.parse_value(lexer)?;
                 object.insert(key.into(), value);
 
-                if let Ok((p, _comma)) = lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Comma) {
-                    if lexer.is_next::<_, SkipWs<true>>(MainToken::RightBrace) {
+                if let Ok((p, _comma)) = lexer.lex_1_char::<_, SkipWs<true>>(JsonToken::Comma) {
+                    if lexer.is_next::<_, SkipWs<true>>(JsonToken::RightBrace) {
                         return Err(StructureError::TrailingComma { pos: p })?;
                     }
                 }
@@ -67,7 +64,7 @@ impl Parser {
                 break;
             }
         }
-        lexer.lex_1_char::<_, SkipWs<true>>(MainToken::RightBrace)?;
+        lexer.lex_1_char::<_, SkipWs<true>>(JsonToken::RightBrace)?;
         Ok(Value::Object(object))
     }
 
@@ -75,20 +72,20 @@ impl Parser {
     /// `array` := "\[" { `value` \[ "," \] }  "\]"
     pub fn parse_array(&self, lexer: &mut Lexer) -> anyhow::Result<Value> {
         let mut array = Vec::new();
-        let (_, _left_bracket) = lexer.lex_1_char::<_, SkipWs<true>>(MainToken::LeftBracket)?;
-        while !lexer.is_next::<_, SkipWs<true>>(MainToken::RightBracket) {
+        let (_, _left_bracket) = lexer.lex_1_char::<_, SkipWs<true>>(JsonToken::LeftBracket)?;
+        while !lexer.is_next::<_, SkipWs<true>>(JsonToken::RightBracket) {
             let value = self.parse_value(lexer)?;
             array.push(value);
 
-            if let Ok((p, _comma)) = lexer.lex_1_char::<_, SkipWs<true>>(MainToken::Comma) {
-                if lexer.is_next::<_, SkipWs<true>>(MainToken::RightBracket) {
+            if let Ok((p, _comma)) = lexer.lex_1_char::<_, SkipWs<true>>(JsonToken::Comma) {
+                if lexer.is_next::<_, SkipWs<true>>(JsonToken::RightBracket) {
                     return Err(StructureError::TrailingComma { pos: p })?;
                 }
             } else {
                 break;
             }
         }
-        lexer.lex_1_char::<_, SkipWs<true>>(MainToken::RightBracket)?;
+        lexer.lex_1_char::<_, SkipWs<true>>(JsonToken::RightBracket)?;
         Ok(Value::Array(array))
     }
 
@@ -134,45 +131,45 @@ impl Parser {
     /// `string` := """ { `escape_sequence` | `char`  } """
     pub fn parse_string(&self, lexer: &mut Lexer) -> anyhow::Result<Value> {
         let mut string = String::new();
-        let (start, _quotation) = lexer.lex_1_char::<_, SkipWs<false>>(StringToken::Quotation)?;
-        while !lexer.is_next::<_, SkipWs<false>>(StringToken::Quotation) {
+        let (start, _quotation) = lexer.lex_1_char::<_, SkipWs<false>>(EscapedStringToken::Quotation)?;
+        while !lexer.is_next::<_, SkipWs<false>>(EscapedStringToken::Quotation) {
             let &(p, c) = lexer.peek().ok_or_else(|| {
                 let eof = lexer.json.eof();
                 ParseStringError::UnexpectedEof { comp: string.clone(), start, end: eof }
             })?;
             if c == '\n' {
                 return Err(ParseStringError::UnexpectedLinefeed { comp: string, start, end: p })?;
-            } else if lexer.is_next::<_, SkipWs<false>>(StringToken::ReverseSolidus) {
+            } else if lexer.is_next::<_, SkipWs<false>>(EscapedStringToken::ReverseSolidus) {
                 string.push(self.parse_escape_sequence(lexer)?);
             } else {
                 string.push(c);
                 lexer.next();
             }
         }
-        lexer.lex_1_char::<_, SkipWs<false>>(StringToken::Quotation)?;
+        lexer.lex_1_char::<_, SkipWs<false>>(EscapedStringToken::Quotation)?;
         Ok(Value::String(string))
     }
 
     /// parse `escape_sequence` of json. the following ebnf is not precise.<br>
     /// `escape_sequence` := "\\"" | "\\\\" | "\\/" | "\n" | "\r" | "\t" | `unicode`
     pub fn parse_escape_sequence(&self, lexer: &mut Lexer) -> anyhow::Result<char> {
-        let (start, reverse_solidus) = lexer.lex_1_char::<_, SkipWs<false>>(StringToken::ReverseSolidus)?;
+        let (start, reverse_solidus) = lexer.lex_1_char::<_, SkipWs<false>>(EscapedStringToken::ReverseSolidus)?;
         let (p, escaped) = lexer.next().ok_or_else(|| {
             let eof = lexer.json.eof();
             ParseStringError::UnexpectedEof { comp: reverse_solidus.to_string(), start, end: eof }
         })?;
-        let tokenized = StringToken::tokenize(escaped);
+        let tokenized = EscapedStringToken::tokenize(escaped);
         match tokenized {
-            StringToken::Quotation => Ok('"'),
-            StringToken::ReverseSolidus => Ok('\\'),
-            StringToken::Solidus => Ok('/'),
-            StringToken::Backspace | StringToken::Formfeed => {
+            EscapedStringToken::Quotation => Ok('"'),
+            EscapedStringToken::ReverseSolidus => Ok('\\'),
+            EscapedStringToken::Solidus => Ok('/'),
+            EscapedStringToken::Backspace | EscapedStringToken::Formfeed => {
                 Err(ParseStringError::UnsupportedEscapeSequence { escape: tokenized, start, end: p })?
             }
-            StringToken::Linefeed => Ok('\n'),
-            StringToken::CarriageReturn => Ok('\r'),
-            StringToken::HorizontalTab => Ok('\t'),
-            StringToken::Unicode => self.parse_unicode(lexer, start),
+            EscapedStringToken::Linefeed => Ok('\n'),
+            EscapedStringToken::CarriageReturn => Ok('\r'),
+            EscapedStringToken::HorizontalTab => Ok('\t'),
+            EscapedStringToken::Unicode => self.parse_unicode(lexer, start),
             _ => Err(ParseStringError::UnexpectedEscapeSequence { escape: tokenized, start, end: p })?,
         }
     }
