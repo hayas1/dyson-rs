@@ -4,9 +4,6 @@ use super::{
     token::{MainToken, SequentialToken, SingleToken},
 };
 
-pub type Nexted = ((usize, usize), char); // next is not verb but...
-pub type Peeked<'a> = &'a Nexted;
-
 pub struct Lexer<'a> {
     pub(crate) json: &'a RawJson,
     curr: Option<((usize, usize), char)>,
@@ -25,23 +22,24 @@ impl<'a> Iterator for Lexer<'a> {
         Some(((row, col), curr))
     }
 }
+
 impl<'a> Lexer<'a> {
     /// read next token without skip whitespace. this method's complexity is **O(1)**.
     /// if next token is eof, return None.
     pub fn new(json: &'a RawJson) -> Self {
-        let curr = json.first();
+        let curr = json.get(0, 0).map(|&c| ((0, 0), c));
         Self { json, curr }
     }
 
     /// peek next token without skip whitespace. this method's complexity is **O(1)**.
     /// if next token is eof, return None.
-    pub fn peek(&self) -> Option<Peeked> {
+    pub fn peek(&self) -> Option<&<Self as Iterator>::Item> {
         self.curr.as_ref()
     }
 
     /// read next token with skip whitespace. this method's complexity is **O(len(ws))**, but first call of this method
     /// will move cursor to end of whitespace, so consecutive call of this method will be **O(1)** complexity.
-    pub fn skip_whitespace(&mut self) -> Option<Peeked> {
+    pub fn skip_whitespace(&mut self) -> Option<&<Self as Iterator>::Item> {
         while let Some(&(_, c)) = self.peek() {
             if MainToken::tokenize(c) == MainToken::Whitespace {
                 self.next();
@@ -54,7 +52,11 @@ impl<'a> Lexer<'a> {
 
     /// read next expected token. if `skip_ws`, this method's complexity is **O(len(ws))** (see [skip_whitespace](Lexer)).
     /// if success, lexer cursor move to next, but if error, lexer cursor do not move next (skip whitespace only).
-    pub fn lex_1_char<T: 'static + SingleToken, S: SkipWhiteSpace>(&mut self, token: T) -> anyhow::Result<Nexted> {
+    pub fn lex_1_char<T, S>(&mut self, token: T) -> anyhow::Result<<Self as Iterator>::Item>
+    where
+        T: 'static + SingleToken,
+        S: SkipWhiteSpace,
+    {
         if let Some(&(pos, c)) = if S::skip_ws() { self.skip_whitespace() } else { self.peek() } {
             if T::tokenize(c) != token {
                 Err(SingleTokenError::UnexpectedToken { expected: vec![token], found: T::tokenize(c), pos })?
@@ -68,7 +70,7 @@ impl<'a> Lexer<'a> {
 
     /// read next `n` chars ***without*** skipping whitespace until white space. this method's complexity is **O(n)**.
     /// if success, lexer cursor move `n` step, but if error, lexer cursor will stop error ocurred position.
-    pub fn lex_n_chars(&mut self, n: usize) -> anyhow::Result<(String, Option<Nexted>)> {
+    pub fn lex_n_chars(&mut self, n: usize) -> anyhow::Result<(String, Option<<Self as Iterator>::Item>)> {
         if n == 0 {
             return Ok((String::new(), self.peek().cloned()));
         }
@@ -94,7 +96,10 @@ impl<'a> Lexer<'a> {
 
     /// read next sequential token with skipping whitespace until line separator.
     /// this method's complexity is **O(len(token))** (see [lex_n_chars](Lexer)).
-    pub fn lex_expected<T: 'static + SequentialToken>(&mut self, token: T) -> anyhow::Result<Option<Nexted>> {
+    pub fn lex_expected<T>(&mut self, token: T) -> anyhow::Result<Option<<Self as Iterator>::Item>>
+    where
+        T: 'static + SequentialToken,
+    {
         if let Some(&(start, _)) = self.skip_whitespace() {
             let (ts, nexted) = self.lex_n_chars(token.to_string().len())?;
             if T::confirm(&ts) == token {
@@ -136,7 +141,7 @@ mod tests {
     #[test]
     fn test_json_read() {
         let json: RawJson = vec!["{", "\"a\": 1", "}"].into_iter().collect();
-        let mut lexer = Lexer::new(&json);
+        let mut lexer = json.lexer();
         assert_eq!(lexer.peek(), Some(&((0, 0), '{')));
         assert_eq!(lexer.peek(), Some(&((0, 0), '{')));
         assert_eq!(lexer.peek(), Some(&((0, 0), '{')));
@@ -168,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_skip_whitespace() {
-        let json: RawJson = vec!["{", "    \"a\": 1", "}"].into_iter().collect();
+        let json = vec!["{", "    \"a\": 1", "}"].into_iter().collect();
         let expected = vec!['{', '"', 'a', '"', ':', '1', '}'];
         let (mut i, mut lexer) = (0, Lexer::new(&json));
         while lexer.skip_whitespace().is_some() {
@@ -179,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_lex_1_char() {
-        let json: RawJson = vec![" {", " ]"].into_iter().collect();
+        let json = vec![" {", " ]"].into_iter().collect();
         let mut lexer = Lexer::new(&json);
         let error = lexer.lex_1_char::<_, SkipWs<false>>(MainToken::LeftBrace).unwrap_err();
         println!("{}", error);
