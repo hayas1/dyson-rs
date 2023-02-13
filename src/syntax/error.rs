@@ -1,4 +1,4 @@
-use super::token::{EscapedStringToken, LL1Token};
+use super::token::{EscapedStringToken, LL1Token, NumberToken};
 use thiserror::Error;
 
 pub type Position = (usize, usize);
@@ -28,7 +28,7 @@ pub enum TokenizeError {
     UnmatchedTokenPrefix { c: char, token_type: String },
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug)] // TODO pos -> start, end
 pub enum LexTokenError<T: LL1Token> {
     #[error("{}: {}", postr(pos), error)]
     TokenizeError { error: T::Error, pos: Position },
@@ -44,9 +44,17 @@ pub enum LexTokenError<T: LL1Token> {
 
     #[error("{} - {}: unexpected EOF, unknown token \"{}\"", postr(start), postr(end), if found.is_empty() {"empty string"} else {found})]
     EofWhileLex { found: String, start: Position, end: Position },
+
+    #[error("{}", error)]
+    Error { error: anyhow::Error },
+}
+impl<T: LL1Token> From<anyhow::Error> for LexTokenError<T> {
+    fn from(error: anyhow::Error) -> Self {
+        Self::Error { error }
+    }
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug)] // TODO pos -> start, end
 pub enum StructureError {
     #[error("{}: trailing comma is not allowed in json", postr(pos))]
     TrailingComma { pos: Position },
@@ -55,17 +63,37 @@ pub enum StructureError {
     FoundSurplus { start: Position, end: Position },
 }
 
-#[derive(Error, Debug)]
-pub enum ParseValueError<T: LL1Token> {
+#[derive(Error, Debug)] // TODO pos -> start, end
+pub enum ParseError<T: LL1Token> {
+    #[error("{}: {}", postr(pos), error)]
+    TokenizeError { error: T::Error, pos: Position },
+
     #[error(
         "{}: expected leading value token such as {}, but found {:?}",
         postr(pos),
-        join_token(examples, " or "),
+        join_token(expected, " or "),
         found
     )]
-    CannotStartParseValue { examples: Vec<T>, found: T, pos: Position },
-    #[error("{}: expected leading value token such as {}, but found EOF", postr(pos), join_token(examples, " or "))]
-    UnexpectedEof { examples: Vec<T>, pos: Position },
+    UnexpectedToken { expected: Vec<T>, found: T, pos: Position },
+
+    #[error("{}: expected leading value token such as {}, but found EOF", postr(pos), join_token(expected, " or "))]
+    UnexpectedEof { expected: Vec<T>, pos: Position },
+
+    #[error("{}", error)]
+    ParseStringError { error: ParseStringError },
+
+    #[error("{}", error)]
+    ParseNumberError { error: ParseNumberError },
+}
+impl<T: LL1Token> From<ParseStringError> for ParseError<T> {
+    fn from(error: ParseStringError) -> Self {
+        Self::ParseStringError { error }
+    }
+}
+impl<T: LL1Token> From<ParseNumberError> for ParseError<T> {
+    fn from(error: ParseNumberError) -> Self {
+        Self::ParseNumberError { error }
+    }
 }
 
 #[derive(Error, Debug)]
@@ -90,6 +118,14 @@ pub enum ParseStringError {
 pub enum ParseNumberError {
     #[error("{} - {}: unexpected EOF, cannot close string literal \"{}\"", postr(start), postr(end), num)]
     UnexpectedEof { num: String, start: Position, end: Position },
+
+    #[error(
+        "{}: expected leading value token such as {}, but found {:?}",
+        postr(pos),
+        join_token(expected, " or "),
+        found
+    )]
+    UnexpectedToken { expected: Vec<NumberToken>, found: NumberToken, pos: Position },
 
     #[error("{} - {}: \"{}\" maybe valid number, but cannot be converted into `i64`", postr(start), postr(end), num)]
     CannotConvertI64 { num: String, start: Position, end: Position },

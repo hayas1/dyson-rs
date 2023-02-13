@@ -1,6 +1,7 @@
 use super::error::TokenizeError;
 
-// TODO remove unused trait bound
+// TODO better implementation of Debug
+// TODO implement parase
 pub trait LL1Token: PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + Sized {
     type Error: std::fmt::Display + std::fmt::Debug + Send + Sync;
     fn lookahead(c: char) -> Result<Self, Self::Error>;
@@ -65,6 +66,7 @@ impl LL1Token for JsonToken {
             ' ' | '\n' | '\r' | '\t' => Ok(Self::Whitespace),
             '+' | '-' | '.' | '0'..='9' => Ok(Self::Number(NumberToken::lookahead(c)?)),
             '"' => Ok(Self::String(EscapedStringToken::lookahead(c)?)),
+            _ => Err(TokenizeError::UnmatchedTokenPrefix { c, token_type: std::any::type_name::<Self>().to_string() }),
         }
     }
     fn tokenize(s: &str) -> Result<Self, Self::Error> {
@@ -103,6 +105,15 @@ impl LL1Token for ImmediateToken {
             "false" => Ok(Self::False),
             "null" => Ok(Self::Null),
             _ => Err(TokenizeError::UnmatchedToken { s: s.to_string() }),
+        }
+    }
+}
+impl ImmediateToken {
+    pub fn value(&self) -> Option<bool> {
+        match self {
+            Self::True => Some(true),
+            Self::False => Some(false),
+            Self::Null => None,
         }
     }
 }

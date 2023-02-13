@@ -54,7 +54,7 @@ impl<'a> Lexer<'a> {
     /// if success, lexer cursor move to next, but if error, lexer cursor do not move next (skip whitespace only).
     pub fn lex_1_char<T, S>(&mut self, expected: T) -> anyhow::Result<<Self as Iterator>::Item>
     where
-        T: std::fmt::Debug + LL1Token,
+        T: 'static + std::fmt::Debug + LL1Token,
         S: SkipWhiteSpace,
     {
         if let Some(&(pos, c)) = if S::skip_ws() { self.skip_whitespace() } else { self.peek() } {
@@ -66,6 +66,12 @@ impl<'a> Lexer<'a> {
         } else {
             Err(LexTokenError::UnexpectedEof { expected, pos: self.json.eof() })?
         }
+    }
+
+    // TODO implement
+    pub fn lex_until(&mut self) -> Option<<Self as Iterator>::Item> {
+        // until whitespace of comma or parenthesis
+        todo!()
     }
 
     /// read next `n` chars ***without*** skipping whitespace until white space. this method's complexity is **O(n)**.
@@ -99,7 +105,7 @@ impl<'a> Lexer<'a> {
     /// this method's complexity is **O(len(token))** (see [lex_n_chars](Lexer)).
     pub fn lex_expected<T>(&mut self, expected: T) -> anyhow::Result<Option<<Self as Iterator>::Item>>
     where
-        T: std::fmt::Debug + LL1Token,
+        T: 'static + std::fmt::Debug + LL1Token,
     {
         // HACK this functions is only used by parse immediate, so should be refactored
         if let Some(&(start, _)) = self.skip_whitespace() {
