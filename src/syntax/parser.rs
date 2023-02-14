@@ -1,19 +1,21 @@
 use super::{
     error::{ParseError, ParseNumberError, ParseStringError, Position, StructureError},
     lexer::{Lexer, SkipWs},
+    rawjson::RawJson,
     token::{EscapedStringToken, ImmediateToken, JsonToken, LL1Token, NumberToken},
 };
 use crate::ast::Value;
 use anyhow::Context as _;
 use linked_hash_map::LinkedHashMap;
 
-pub struct Parser {}
+pub struct Parser<'a> {
+    lexer: Lexer<'a>,
+}
 
-impl Parser {
+impl<'a> Parser<'a> {
     /// get new parser to parse raw json
-    pub fn new() -> Self {
-        // TODO trailing comma, allow comment
-        Self {}
+    pub fn new(json: &'a RawJson) -> Self {
+        Self { lexer: json.lexer() }
     }
 
     /// parse `value` of json. the following ebnf is not precise.<br>
