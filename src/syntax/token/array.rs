@@ -3,7 +3,6 @@ pub enum ArrayToken {
     LeftBracket,
     RightBracket,
     Comma,
-    Whitespace,
 }
 
 impl std::fmt::Display for ArrayToken {
@@ -12,7 +11,6 @@ impl std::fmt::Display for ArrayToken {
             Self::LeftBracket => write!(f, "["),
             Self::RightBracket => write!(f, "]"),
             Self::Comma => write!(f, ","),
-            Self::Whitespace => write!(f, " "),
         }
     }
 }

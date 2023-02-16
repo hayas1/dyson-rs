@@ -1,7 +1,11 @@
+use crate::syntax::error::ParserError;
+
+use super::{LL1Token, TerminalSymbol, LL1};
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum NumericToken {
     Zero,
-    OneNine(char),
+    OneNine(LL1),
     Plus,
     Minus,
     Dot,
@@ -19,3 +23,13 @@ impl std::fmt::Display for NumericToken {
         }
     }
 }
+// impl LL1Token for NumericToken {
+//     type Error = ErrorWithPosition<anyhow::Error>;
+//     type Symbol = TerminalSymbol;
+//     fn lookahead(c: &char) -> Option<Self> {
+//         todo!()
+//     }
+//     fn parse(parser: &mut crate::syntax::parser::Parser) -> Result<crate::ast::Value, Self::Error> {
+//         todo!()
+//     }
+// }
