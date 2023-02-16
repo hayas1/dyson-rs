@@ -1,57 +1,196 @@
-use super::token::{EscapedStringToken, LL1Token, NumberToken};
 use thiserror::Error;
 
-pub type Position = (usize, usize);
+use super::{
+    token::{numeric::NumericToken, string::StringToken, LL1Token},
+    Position,
+};
 
 pub(crate) fn postr((row, col): &Position) -> String {
     format!("line {} (col {})", row + 1, col + 1)
 }
 
 pub(crate) fn join_token<'a, I: IntoIterator<Item = &'a T>, T: 'a + LL1Token>(iter: I, sep: &str) -> String {
-    let res = iter.into_iter().map(|t| format!("{:?}", t)).collect::<Vec<_>>().join(sep);
-    if res.is_empty() {
-        "some token".to_string()
-    } else {
-        res
+    // let res = iter.into_iter().map(|t| format!("{:?}", t)).collect::<Vec<_>>().join(sep);
+    // if res.is_empty() {
+    //     "some token".to_string()
+    // } else {
+    //     res
+    // }
+    todo!()
+}
+
+#[derive(Error, Debug)]
+#[error("{} - {}: {:?}", postr(start), postr(end), source)]
+pub struct ParserError<T: std::fmt::Debug + Send + Sync> {
+    #[source]
+    source: T,
+    start: Position,
+    end: Position,
+}
+pub trait WithPos: std::fmt::Debug + Send + Sync + Sized {
+    fn with_pos(self, start: Position, end: Position) -> ParserError<Self>;
+}
+impl<E: std::fmt::Debug + Send + Sync> WithPos for E {
+    fn with_pos(self, start: Position, end: Position) -> ParserError<Self> {
+        ParserError { start, end, source: self }
+    }
+}
+impl<T: LL1Token> From<ParserError<LexerError<T>>> for ParserError<ParseObjectError<T>> {
+    fn from(error: ParserError<LexerError<T>>) -> Self {
+        ParserError { source: error.source.into(), start: error.start, end: error.end }
+    }
+}
+impl<T: LL1Token> From<ParserError<LexerError<T>>> for ParserError<ParseStringError<T>> {
+    fn from(error: ParserError<LexerError<T>>) -> Self {
+        ParserError { source: error.source.into(), start: error.start, end: error.end }
     }
 }
 
 #[derive(Error, Debug)]
-pub enum TokenizeError {
+pub enum ConvertError {
+    #[error("`{}` has {} length, so cannot convert to char", s, s.len())]
+    TooLongString { s: String },
+
+    #[error("cannot convert empty string to char")]
+    EmptyString,
+}
+
+#[derive(Error, Debug)]
+pub enum TokenizeError<T: LL1Token> {
     #[error("`{}` seem to be not json's token", s)]
     UnmatchedToken { s: String },
 
-    #[error("cannot tokenize `{}` as `{}`", s, token_type)]
-    InvalidTokenize { s: String, token_type: String },
+    #[error("cannot tokenize `{}` as `{}`", s, std::any::type_name::<T>())]
+    InvalidTokenize { s: String },
 
-    #[error("no `{}` token start with `{}` ", token_type, c)]
-    UnmatchedTokenPrefix { c: char, token_type: String },
-}
-
-#[derive(Error, Debug)] // TODO pos -> start, end
-pub enum LexTokenError<T: LL1Token> {
-    #[error("{}: {}", postr(pos), error)]
-    TokenizeError { error: T::Error, pos: Position },
-
-    #[error("{}: expected: {:?}, but found {:?}", postr(pos), expected, token)]
-    UnexpectedToken { token: T, expected: T, pos: Position },
-
-    #[error("{} - {}: unexpected EOF, unknown token \"{}\"", postr(start), postr(end), if found.is_empty() {"empty string"} else {found})]
-    UnexpectedWhiteSpace { found: String, start: Position, end: Position },
-
-    #[error("{}: expected {:?}, but found EOF", postr(pos), expected)]
-    UnexpectedEof { expected: T, pos: Position },
-
-    #[error("{} - {}: unexpected EOF, unknown token \"{}\"", postr(start), postr(end), if found.is_empty() {"empty string"} else {found})]
-    EofWhileLex { found: String, start: Position, end: Position },
+    #[error("no `{}` token start with `{}` ", std::any::type_name::<T>(), c)]
+    UnmatchedTokenPrefix { c: char },
 
     #[error("{}", error)]
-    Error { error: anyhow::Error },
+    ConvertError { error: ConvertError },
+
+    #[error("expected {:?}, but found {:?}", expected, token)]
+    UnexpectedToken { token: T, expected: T },
 }
-impl<T: LL1Token> From<anyhow::Error> for LexTokenError<T> {
-    fn from(error: anyhow::Error) -> Self {
-        Self::Error { error }
+impl<T: LL1Token> From<ConvertError> for TokenizeError<T> {
+    fn from(error: ConvertError) -> Self {
+        Self::ConvertError { error }
     }
+}
+
+#[derive(Error, Debug)]
+pub enum LexerError<T: LL1Token> {
+    #[error("{:?}", error)]
+    FailedLookahead { error: T::Error },
+
+    #[error("cannot lookahead, found eof")]
+    LookaheadEof {},
+
+    #[error("expected {:?}, but found {:?}", expected, found)]
+    UnexpectedToken { found: T, expected: T },
+
+    #[error("expected {:?}, but error occurred \"{:?}\"", expected, error)]
+    FailedTokenize { expected: T, error: T::Error },
+
+    #[error("expected {:?}, but found EOF", expected)]
+    UnexpectedEof { expected: T },
+}
+impl<T: LL1Token> From<LexerError<T>> for ParseObjectError<T> {
+    fn from(error: LexerError<T>) -> Self {
+        Self::LexError { error }
+    }
+}
+impl<T: LL1Token> From<LexerError<T>> for ParseArrayError<T> {
+    fn from(error: LexerError<T>) -> Self {
+        Self::LexError { error }
+    }
+}
+impl<T: LL1Token> From<LexerError<T>> for ParseImmediateError<T> {
+    fn from(error: LexerError<T>) -> Self {
+        Self::LexError { error }
+    }
+}
+impl<T: LL1Token> From<LexerError<T>> for ParseStringError<T> {
+    fn from(error: LexerError<T>) -> Self {
+        Self::LexError { error }
+    }
+}
+impl<T: LL1Token> From<LexerError<T>> for ParseNumericError<T> {
+    fn from(error: LexerError<T>) -> Self {
+        Self::LexError { error }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum ParseObjectError<T: LL1Token> {
+    #[error("{}", error)]
+    LexError { error: LexerError<T> },
+
+    #[error("{}", error)]
+    ParseStringError { error: ParseStringError<T> },
+}
+impl<T: LL1Token> From<ParseStringError<T>> for ParseObjectError<T> {
+    fn from(error: ParseStringError<T>) -> Self {
+        Self::ParseStringError { error }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum ParseArrayError<T: LL1Token> {
+    #[error("{}", error)]
+    LexError { error: LexerError<T> },
+}
+
+#[derive(Error, Debug)]
+pub enum ParseImmediateError<T: LL1Token> {
+    #[error("{}", error)]
+    LexError { error: LexerError<T> },
+}
+
+#[derive(Error, Debug)]
+pub enum ParseStringError<T: LL1Token> {
+    #[error("{} - {}: unexpected Linefeed, cannot close string literal \"{}\"", postr(start), postr(end), comp)]
+    UnexpectedLinefeed { comp: String, start: Position, end: Position },
+
+    #[error("{} - {}: unexpected EOF, cannot close string literal \"{}\"", postr(start), postr(end), comp)]
+    UnexpectedEof { comp: String, start: Position, end: Position },
+
+    #[error("{} - {}: unsupported {:?} in Rust", postr(start), postr(end), escape)]
+    UnsupportedEscapeSequence { escape: StringToken, start: Position, end: Position },
+
+    #[error("{} - {}: {} cannot be converted into unicode", postr(start), postr(end), uc)]
+    CannotConvertUnicode { uc: String, start: Position, end: Position },
+
+    #[error("{} - {}: unexpected escape sequence \"\\{}\"", postr(start), postr(end), escape)]
+    UnexpectedEscapeSequence { escape: StringToken, start: Position, end: Position },
+
+    #[error("{}", error)]
+    LexError { error: LexerError<T> },
+}
+
+#[derive(Error, Debug)]
+pub enum ParseNumericError<T: LL1Token> {
+    #[error("{} - {}: unexpected EOF, cannot close string literal \"{}\"", postr(start), postr(end), num)]
+    UnexpectedEof { num: String, start: Position, end: Position },
+
+    // #[error(
+    //     "{}: expected leading value token such as {}, but found {:?}",
+    //     postr(pos),
+    //     join_token(expected, " or "),
+    //     found
+    // )]
+    // UnexpectedToken { expected: Vec<NumericToken>, found: NumericToken, pos: Position },
+    #[error("{} - {}: \"{}\" maybe valid number, but cannot be converted into `i64`", postr(start), postr(end), num)]
+    CannotConvertI64 { num: String, start: Position, end: Position },
+
+    #[error("{} - {}: \"{}\" maybe valid number, but cannot be converted into `f64`", postr(start), postr(end), num)]
+    CannotConvertF64 { num: String, start: Position, end: Position },
+
+    #[error("{}: empty digits is not allowed", postr(pos))]
+    EmptyDigits { pos: Position },
+
+    #[error("{}", error)]
+    LexError { error: LexerError<T> },
 }
 
 #[derive(Error, Debug)] // TODO pos -> start, end
@@ -61,80 +200,6 @@ pub enum StructureError {
 
     #[error("{} - {}: found surplus token previous EOF", postr(start), postr(end))]
     FoundSurplus { start: Position, end: Position },
-}
-
-#[derive(Error, Debug)] // TODO pos -> start, end
-pub enum ParseError<T: LL1Token> {
-    #[error("{}: {}", postr(pos), error)]
-    TokenizeError { error: T::Error, pos: Position },
-
-    #[error(
-        "{}: expected leading value token such as {}, but found {:?}",
-        postr(pos),
-        join_token(expected, " or "),
-        found
-    )]
-    UnexpectedToken { expected: Vec<T>, found: T, pos: Position },
-
-    #[error("{}: expected leading value token such as {}, but found EOF", postr(pos), join_token(expected, " or "))]
-    UnexpectedEof { expected: Vec<T>, pos: Position },
-
-    #[error("{}", error)]
-    ParseStringError { error: ParseStringError },
-
-    #[error("{}", error)]
-    ParseNumberError { error: ParseNumberError },
-}
-impl<T: LL1Token> From<ParseStringError> for ParseError<T> {
-    fn from(error: ParseStringError) -> Self {
-        Self::ParseStringError { error }
-    }
-}
-impl<T: LL1Token> From<ParseNumberError> for ParseError<T> {
-    fn from(error: ParseNumberError) -> Self {
-        Self::ParseNumberError { error }
-    }
-}
-
-#[derive(Error, Debug)]
-pub enum ParseStringError {
-    #[error("{} - {}: unexpected Linefeed, cannot close string literal \"{}\"", postr(start), postr(end), comp)]
-    UnexpectedLinefeed { comp: String, start: Position, end: Position },
-
-    #[error("{} - {}: unexpected EOF, cannot close string literal \"{}\"", postr(start), postr(end), comp)]
-    UnexpectedEof { comp: String, start: Position, end: Position },
-
-    #[error("{} - {}: unsupported {:?} in Rust", postr(start), postr(end), escape)]
-    UnsupportedEscapeSequence { escape: EscapedStringToken, start: Position, end: Position },
-
-    #[error("{} - {}: {} cannot be converted into unicode", postr(start), postr(end), uc)]
-    CannotConvertUnicode { uc: String, start: Position, end: Position },
-
-    #[error("{} - {}: unexpected escape sequence \"\\{}\"", postr(start), postr(end), escape)]
-    UnexpectedEscapeSequence { escape: EscapedStringToken, start: Position, end: Position },
-}
-
-#[derive(Error, Debug)]
-pub enum ParseNumberError {
-    #[error("{} - {}: unexpected EOF, cannot close string literal \"{}\"", postr(start), postr(end), num)]
-    UnexpectedEof { num: String, start: Position, end: Position },
-
-    #[error(
-        "{}: expected leading value token such as {}, but found {:?}",
-        postr(pos),
-        join_token(expected, " or "),
-        found
-    )]
-    UnexpectedToken { expected: Vec<NumberToken>, found: NumberToken, pos: Position },
-
-    #[error("{} - {}: \"{}\" maybe valid number, but cannot be converted into `i64`", postr(start), postr(end), num)]
-    CannotConvertI64 { num: String, start: Position, end: Position },
-
-    #[error("{} - {}: \"{}\" maybe valid number, but cannot be converted into `f64`", postr(start), postr(end), num)]
-    CannotConvertF64 { num: String, start: Position, end: Position },
-
-    #[error("{}: empty digits is not allowed", postr(pos))]
-    EmptyDigits { pos: Position },
 }
 
 #[cfg(test)]

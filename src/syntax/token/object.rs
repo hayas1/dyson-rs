@@ -46,8 +46,6 @@ impl JsonToken for ObjectToken {
         while !matches!(parser.lexer.decide(), Ok(ObjectToken::RightBrace)) {
             if matches!(parser.lexer.decide(), Ok(StringToken::Quotation)) {
                 let key = StringToken::parse(parser)?;
-                ObjectTokenとStringTokenで型が違うためエラーが変換できない
-                genericsついてるエラーなかなか難しそうなので、結局anyhowぐらいが落としどころかもしれない
             }
         }
         // let (_, _left_brace) = lexer.lex_1_char::<_, SkipWs<true>>(JsonToken::LeftBrace)?;
