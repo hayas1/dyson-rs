@@ -48,7 +48,7 @@ where
         Self { source: positioned.0.source.into(), start: positioned.0.start, end: positioned.0.end }
     }
 }
-// TODO how to auto implement this traits
+// HACK how to auto implement this traits
 impl From<LexerError<ObjectToken>> for LexerError<ValueToken> {
     fn from(value: LexerError<ObjectToken>) -> Self {
         value.into()
@@ -74,70 +74,6 @@ impl From<LexerError<NumericToken>> for LexerError<ValueToken> {
         value.into()
     }
 }
-
-// pub trait WithPos: std::fmt::Debug + Send + Sync + Sized {
-//     type Positioned;
-//     fn with_pos(self, start: Position, end: Position) -> Self::Positioned;
-// }
-// pub trait Positioned: std::fmt::Debug + Send + Sync + Sized {
-//     type Source;
-//     fn source(&self) -> Self::Source;
-//     fn start(&self) -> Position;
-//     fn end(&self) -> Position;
-// }
-// cannot compile
-// impl<E: Positioned, F: Positioned> From<E> for F
-// where
-//     E::Source: std::fmt::Debug + Send + Sync + Sized,
-//     F::Source: std::fmt::Debug + Send + Sync + Sized + From<E::Source>,
-// {
-//     fn from(positioned: E) -> Self {
-//         let (start, end) = (positioned.start(), positioned.end());
-//         positioned.source().into().with_pos(start, end)
-//     }
-// }
-
-// #[derive(Error, Debug)]
-// #[error("{} - {}: {:?}", postr(start), postr(end), source)]
-// pub struct ParserError<T: std::fmt::Debug + Send + Sync> {
-//     #[source]
-//     source: T,
-//     start: Position,
-//     end: Position,
-// }
-// impl<E: Positioned> From<E> for ParserError<E>
-// where
-//     E::Source: WithPos,
-//     <E::Source as WithPos>::Positioned: Into<Self>,
-// {
-//     fn from(positioned: E) -> Self {
-//         let (start, end) = (positioned.start(), positioned.end());
-//         positioned.source().with_pos(start, end).into()
-//     }
-// }
-// impl<E: std::fmt::Debug + Send + Sync> Positioned for ParserError<E> {
-//     type Source = E;
-//     fn source(&self) -> E {
-//         self.source
-//     }
-//     fn start(&self) -> Position {
-//         self.start
-//     }
-//     fn end(&self) -> Position {
-//         self.end
-//     }
-// }
-
-// impl<T: LL1Token> From<ParserError<LexerError<T>>> for ParserError<ParseObjectError<T>> {
-//     fn from(error: ParserError<LexerError<T>>) -> Self {
-//         ParserError { source: error.source.into(), start: error.start, end: error.end }
-//     }
-// }
-// impl<T: LL1Token> From<ParserError<LexerError<T>>> for ParserError<ParseStringError<T>> {
-//     fn from(error: ParserError<LexerError<T>>) -> Self {
-//         ParserError { source: error.source.into(), start: error.start, end: error.end }
-//     }
-// }
 
 #[derive(Error, Debug)]
 pub enum ConvertError {
@@ -235,6 +171,9 @@ pub enum ParseObjectError<T: LL1Token> {
 
     #[error("{}", error)]
     ParseStringError { error: ParseStringError<T> },
+
+    #[error("trailing comma is not allowed")]
+    TrailingComma {},
 }
 impl<T: LL1Token> From<ParseStringError<T>> for ParseObjectError<T> {
     fn from(error: ParseStringError<T>) -> Self {
@@ -302,9 +241,6 @@ pub enum ParseNumericError<T: LL1Token> {
 
 #[derive(Error, Debug)] // TODO pos -> start, end
 pub enum StructureError {
-    #[error("{}: trailing comma is not allowed in json", postr(pos))]
-    TrailingComma { pos: Position },
-
     #[error("{} - {}: found surplus token previous EOF", postr(start), postr(end))]
     FoundSurplus { start: Position, end: Position },
 }

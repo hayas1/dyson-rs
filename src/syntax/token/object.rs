@@ -43,29 +43,44 @@ impl JsonToken for ObjectToken {
     fn parse(parser: &mut crate::syntax::parser::Parser) -> Result<Self::Output, <Self as JsonToken>::Error> {
         let mut object = LinkedHashMap::new();
         let (_, _left_brace) = parser.lexer.seek(Self::LeftBrace).map_err(Pos::inherit)?;
-        while !matches!(parser.lexer.decide(), Ok(ObjectToken::RightBrace)) {
-            if matches!(parser.lexer.decide(), Ok(StringToken::Quotation)) {
+        while !matches!(parser.lexer.branch(), Ok(ObjectToken::RightBrace)) {
+            if matches!(parser.lexer.branch(), Ok(StringToken::Quotation)) {
                 let key = StringToken::parse(parser).map_err(Pos::inherit)?;
+                let (_, _colon) = parser.lexer.seek(Self::Colon).map_err(Pos::inherit)?;
+                let value = ValueToken::parse(parser).map_err(Pos::inherit)?;
+
+                object.insert(key.into(), value);
+
+                // TODO trailing comma
+                if let Ok(((start, end), _comma)) = parser.lexer.seek(ObjectToken::Comma) {
+                    if matches!(parser.lexer.branch(), Ok(ObjectToken::RightBrace)) {
+                        return Err(Pos::with(ParseObjectError::TrailingComma {}, start, end))?;
+                    }
+                }
+            } else {
+                break;
             }
         }
-        // let (_, _left_brace) = lexer.lex_1_char::<_, SkipWs<true>>(JsonToken::LeftBrace)?;
-        // while !lexer.is_next::<_, SkipWs<true>>(JsonToken::RightBrace) {
-        //     if lexer.is_next::<_, SkipWs<true>>(JsonToken::String(EscapedStringToken::Quotation)) {
-        //         let key = self.parse_string(lexer)?;
-        //         lexer.lex_1_char::<_, SkipWs<true>>(JsonToken::Colon)?;
-        //         let value = self.parse_value(lexer)?;
-        //         object.insert(key.into(), value);
-
-        //         if let Ok((p, _comma)) = lexer.lex_1_char::<_, SkipWs<true>>(JsonToken::Comma) {
-        //             if lexer.is_next::<_, SkipWs<true>>(JsonToken::RightBrace) {
-        //                 return Err(StructureError::TrailingComma { pos: p })?;
-        //             }
-        //         }
-        //     } else {
-        //         break;
-        //     }
-        // }
-        // lexer.lex_1_char::<_, SkipWs<true>>(JsonToken::RightBrace)?;
+        let (_, _right_brace) = parser.lexer.seek(ObjectToken::RightBrace).map_err(Pos::inherit)?;
         Ok(object.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{syntax::parser::Parser, Value};
+
+    #[test]
+    fn test_parse_empty_object() {
+        let empty = "{}".into();
+        let mut parser = Parser::new(&empty);
+        if let Value::Object(map) = ObjectToken::parse(&mut parser).unwrap() {
+            assert_eq!(map, LinkedHashMap::new());
+        } else {
+            unreachable!("\"{{}}\" must be parsed as empty object");
+        }
+        assert_eq!(parser.lexer.next(), Some(((0, 2), '\n')));
+        assert_eq!(parser.lexer.next(), None);
     }
 }

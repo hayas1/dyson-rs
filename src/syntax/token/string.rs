@@ -38,7 +38,19 @@ impl LL1Token for StringToken {
     type Error = TokenizeError<Self>;
     type Symbol = TerminalSymbol;
     fn lookahead(c: &char) -> Result<Self, Self::Error> {
-        todo!()
+        match c {
+            '"' => Ok(Self::Quotation),
+            '\\' => Ok(Self::ReverseSolidus),
+            '/' => Ok(Self::Solidus),
+            'b' => Ok(Self::Backspace),
+            'f' => Ok(Self::Formfeed),
+            'n' => Ok(Self::Linefeed),
+            'r' => Ok(Self::CarriageReturn),
+            't' => Ok(Self::HorizontalTab),
+            'u' => Ok(Self::Unicode),
+            &c @ ('0'..='9' | 'a'..='f' | 'A'..='F') => Ok(Self::Hex4Digits(LL1::Lookahead(c))),
+            &c => Err(TokenizeError::UnmatchedTokenPrefix { c }),
+        }
     }
     fn tokenize(s: &str) -> Result<Self, Self::Error> {
         todo!()
