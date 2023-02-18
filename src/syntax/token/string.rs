@@ -1,6 +1,6 @@
-use crate::syntax::error::{ParseStringError, ParserError, TokenizeError};
+use crate::syntax::error::{ParseObjectError, ParseStringError, Positioned, TokenizeError};
 
-use super::{JsonToken, LL1Token, TerminalSymbol, LL1};
+use super::{value::ValueToken, JsonToken, LL1Token, TerminalSymbol, LL1};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum StringToken {
@@ -46,7 +46,7 @@ impl LL1Token for StringToken {
 }
 impl JsonToken for StringToken {
     type Output = crate::ast::Value;
-    type Error = ParserError<ParseStringError<Self>>;
+    type Error = Positioned<ParseStringError<ValueToken>>;
     fn parse(parser: &mut crate::syntax::parser::Parser) -> Result<Self::Output, <Self as JsonToken>::Error> {
         todo!()
     }

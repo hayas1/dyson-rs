@@ -1,11 +1,9 @@
 use super::{
-    error::{self, LexerError, ParserError, WithPos},
+    error::{LexerError, Pos, Positioned},
     rawjson::RawJson,
     token::{LL1Token, SkipWhiteSpace},
     Position,
 };
-
-pub type LexerResult<S, T> = Result<S, ParserError<LexerError<T>>>;
 
 pub struct Lexer<'a> {
     pub(crate) json: &'a RawJson,
@@ -78,21 +76,21 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn lex<T: LL1Token>(&mut self, expected: T) -> Result<<Self as Iterator>::Item, ParserError<LexerError<T>>> {
+    pub fn lex<T: LL1Token>(&mut self, expected: T) -> Result<<Self as Iterator>::Item, Positioned<LexerError<T>>> {
         if let Some(&(start, _)) = self.stick::<T>() {
             match T::tokenize(&self.take(expected.to_string().len()).map(|(_, c)| c).collect::<String>()) {
-                Ok(td) if td == expected => {
-                    self.next().ok_or_else(|| LexerError::UnexpectedEof { expected }.with_pos(start, self.pos()))
-                }
-                Ok(found) => Err(LexerError::UnexpectedToken { found, expected }.with_pos(start, self.pos())),
-                Err(error) => Err(LexerError::FailedTokenize { expected, error }.with_pos(start, self.pos())),
+                Ok(td) if td == expected => Ok(self
+                    .next()
+                    .ok_or_else(|| Pos::with(LexerError::UnexpectedEof { expected }, start, self.pos()))?),
+                Ok(found) => Err(Pos::with(LexerError::UnexpectedToken { found, expected }, start, self.pos()))?,
+                Err(error) => Err(Pos::with(LexerError::FailedTokenize { expected, error }, start, self.pos()))?,
             }
         } else {
-            Err(LexerError::UnexpectedEof { expected }.with_pos(self.pos(), self.pos()))
+            Err(Pos::with(LexerError::UnexpectedEof { expected }, self.pos(), self.pos()))?
         }
     }
 
-    pub fn seek<T: LL1Token>(&mut self, expected: T) -> Result<<Self as Iterator>::Item, ParserError<LexerError<T>>> {
+    pub fn seek<T: LL1Token>(&mut self, expected: T) -> Result<<Self as Iterator>::Item, Positioned<LexerError<T>>> {
         let stuck = self.stick::<T>().cloned();
         let result = self.lex(expected);
         match (stuck, result) {

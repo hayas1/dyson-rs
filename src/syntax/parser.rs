@@ -1,4 +1,4 @@
-use super::{error::ParserError, lexer::Lexer, rawjson::RawJson};
+use super::{lexer::Lexer, rawjson::RawJson};
 use anyhow::Context as _;
 use linked_hash_map::LinkedHashMap;
 

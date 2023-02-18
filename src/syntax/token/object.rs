@@ -1,8 +1,8 @@
 use linked_hash_map::LinkedHashMap;
 
-use crate::syntax::error::{ParseObjectError, ParserError, TokenizeError, WithPos};
+use crate::syntax::error::{ParseObjectError, Pos, Positioned, TokenizeError};
 
-use super::{string::StringToken, JsonToken, LL1Token, NonTerminalSymbol, LL1};
+use super::{string::StringToken, value::ValueToken, JsonToken, LL1Token, NonTerminalSymbol, LL1};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ObjectToken {
@@ -39,13 +39,13 @@ impl LL1Token for ObjectToken {
 }
 impl JsonToken for ObjectToken {
     type Output = crate::ast::Value;
-    type Error = ParserError<ParseObjectError<Self>>;
+    type Error = Positioned<ParseObjectError<ValueToken>>;
     fn parse(parser: &mut crate::syntax::parser::Parser) -> Result<Self::Output, <Self as JsonToken>::Error> {
         let mut object = LinkedHashMap::new();
-        let (_, _left_brace) = parser.lexer.seek(Self::LeftBrace)?;
+        let (_, _left_brace) = parser.lexer.seek(Self::LeftBrace).map_err(Pos::inherit)?;
         while !matches!(parser.lexer.decide(), Ok(ObjectToken::RightBrace)) {
             if matches!(parser.lexer.decide(), Ok(StringToken::Quotation)) {
-                let key = StringToken::parse(parser)?;
+                let key = StringToken::parse(parser).map_err(Pos::inherit)?;
             }
         }
         // let (_, _left_brace) = lexer.lex_1_char::<_, SkipWs<true>>(JsonToken::LeftBrace)?;

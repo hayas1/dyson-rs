@@ -1,6 +1,6 @@
-use crate::syntax::error::ParserError;
+use crate::syntax::error::{LexerError, ParseStringError, Positioned, TokenizeError};
 
-use super::{LL1Token, TerminalSymbol, LL1};
+use super::{value::ValueToken, JsonToken, LL1Token, NonTerminalSymbol, TerminalSymbol, LL1};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum NumericToken {
@@ -23,13 +23,20 @@ impl std::fmt::Display for NumericToken {
         }
     }
 }
-// impl LL1Token for NumericToken {
-//     type Error = ErrorWithPosition<anyhow::Error>;
-//     type Symbol = TerminalSymbol;
-//     fn lookahead(c: &char) -> Option<Self> {
-//         todo!()
-//     }
-//     fn parse(parser: &mut crate::syntax::parser::Parser) -> Result<crate::ast::Value, Self::Error> {
-//         todo!()
-//     }
-// }
+impl LL1Token for NumericToken {
+    type Error = TokenizeError<Self>;
+    type Symbol = NonTerminalSymbol;
+    fn lookahead(c: &char) -> Result<Self, Self::Error> {
+        todo!()
+    }
+    fn tokenize(s: &str) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+impl JsonToken for NumericToken {
+    type Output = crate::ast::Value;
+    type Error = Positioned<ParseStringError<ValueToken>>;
+    fn parse(parser: &mut crate::syntax::parser::Parser) -> Result<Self::Output, <Self as JsonToken>::Error> {
+        todo!()
+    }
+}

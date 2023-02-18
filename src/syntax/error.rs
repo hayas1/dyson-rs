@@ -1,7 +1,10 @@
 use thiserror::Error;
 
 use super::{
-    token::{numeric::NumericToken, string::StringToken, LL1Token},
+    token::{
+        array::ArrayToken, immediate::ImmediateToken, numeric::NumericToken, object::ObjectToken, string::StringToken,
+        value::ValueToken, LL1Token,
+    },
     Position,
 };
 
@@ -21,30 +24,120 @@ pub(crate) fn join_token<'a, I: IntoIterator<Item = &'a T>, T: 'a + LL1Token>(it
 
 #[derive(Error, Debug)]
 #[error("{} - {}: {:?}", postr(start), postr(end), source)]
-pub struct ParserError<T: std::fmt::Debug + Send + Sync> {
+pub struct Positioned<E: std::fmt::Debug + Send + Sync> {
     #[source]
-    source: T,
+    source: E,
     start: Position,
     end: Position,
 }
-pub trait WithPos: std::fmt::Debug + Send + Sync + Sized {
-    fn with_pos(self, start: Position, end: Position) -> ParserError<Self>;
-}
-impl<E: std::fmt::Debug + Send + Sync> WithPos for E {
-    fn with_pos(self, start: Position, end: Position) -> ParserError<Self> {
-        ParserError { start, end, source: self }
+pub struct Pos<E: std::fmt::Debug + Send + Sync>(Positioned<E>);
+impl<E: std::fmt::Debug + Send + Sync> Pos<E> {
+    pub fn with(source: E, start: Position, end: Position) -> Self {
+        Pos(Positioned { source, start, end })
+    }
+    pub fn inherit(source: Positioned<E>) -> Self {
+        Pos(Positioned { source: source.source, start: source.start, end: source.end })
     }
 }
-impl<T: LL1Token> From<ParserError<LexerError<T>>> for ParserError<ParseObjectError<T>> {
-    fn from(error: ParserError<LexerError<T>>) -> Self {
-        ParserError { source: error.source.into(), start: error.start, end: error.end }
+impl<E, F> From<Pos<E>> for Positioned<F>
+where
+    E: std::fmt::Debug + Send + Sync,
+    F: std::fmt::Debug + Send + Sync + From<E>,
+{
+    fn from(positioned: Pos<E>) -> Self {
+        Self { source: positioned.0.source.into(), start: positioned.0.start, end: positioned.0.end }
     }
 }
-impl<T: LL1Token> From<ParserError<LexerError<T>>> for ParserError<ParseStringError<T>> {
-    fn from(error: ParserError<LexerError<T>>) -> Self {
-        ParserError { source: error.source.into(), start: error.start, end: error.end }
+// TODO how to auto implement this traits
+impl From<LexerError<ObjectToken>> for LexerError<ValueToken> {
+    fn from(value: LexerError<ObjectToken>) -> Self {
+        value.into()
     }
 }
+impl From<LexerError<ArrayToken>> for LexerError<ValueToken> {
+    fn from(value: LexerError<ArrayToken>) -> Self {
+        value.into()
+    }
+}
+impl From<LexerError<ImmediateToken>> for LexerError<ValueToken> {
+    fn from(value: LexerError<ImmediateToken>) -> Self {
+        value.into()
+    }
+}
+impl From<LexerError<StringToken>> for LexerError<ValueToken> {
+    fn from(value: LexerError<StringToken>) -> Self {
+        value.into()
+    }
+}
+impl From<LexerError<NumericToken>> for LexerError<ValueToken> {
+    fn from(value: LexerError<NumericToken>) -> Self {
+        value.into()
+    }
+}
+
+// pub trait WithPos: std::fmt::Debug + Send + Sync + Sized {
+//     type Positioned;
+//     fn with_pos(self, start: Position, end: Position) -> Self::Positioned;
+// }
+// pub trait Positioned: std::fmt::Debug + Send + Sync + Sized {
+//     type Source;
+//     fn source(&self) -> Self::Source;
+//     fn start(&self) -> Position;
+//     fn end(&self) -> Position;
+// }
+// cannot compile
+// impl<E: Positioned, F: Positioned> From<E> for F
+// where
+//     E::Source: std::fmt::Debug + Send + Sync + Sized,
+//     F::Source: std::fmt::Debug + Send + Sync + Sized + From<E::Source>,
+// {
+//     fn from(positioned: E) -> Self {
+//         let (start, end) = (positioned.start(), positioned.end());
+//         positioned.source().into().with_pos(start, end)
+//     }
+// }
+
+// #[derive(Error, Debug)]
+// #[error("{} - {}: {:?}", postr(start), postr(end), source)]
+// pub struct ParserError<T: std::fmt::Debug + Send + Sync> {
+//     #[source]
+//     source: T,
+//     start: Position,
+//     end: Position,
+// }
+// impl<E: Positioned> From<E> for ParserError<E>
+// where
+//     E::Source: WithPos,
+//     <E::Source as WithPos>::Positioned: Into<Self>,
+// {
+//     fn from(positioned: E) -> Self {
+//         let (start, end) = (positioned.start(), positioned.end());
+//         positioned.source().with_pos(start, end).into()
+//     }
+// }
+// impl<E: std::fmt::Debug + Send + Sync> Positioned for ParserError<E> {
+//     type Source = E;
+//     fn source(&self) -> E {
+//         self.source
+//     }
+//     fn start(&self) -> Position {
+//         self.start
+//     }
+//     fn end(&self) -> Position {
+//         self.end
+//     }
+// }
+
+// impl<T: LL1Token> From<ParserError<LexerError<T>>> for ParserError<ParseObjectError<T>> {
+//     fn from(error: ParserError<LexerError<T>>) -> Self {
+//         ParserError { source: error.source.into(), start: error.start, end: error.end }
+//     }
+// }
+// impl<T: LL1Token> From<ParserError<LexerError<T>>> for ParserError<ParseStringError<T>> {
+//     fn from(error: ParserError<LexerError<T>>) -> Self {
+//         ParserError { source: error.source.into(), start: error.start, end: error.end }
+//     }
+// }
 
 #[derive(Error, Debug)]
 pub enum ConvertError {
@@ -95,32 +188,46 @@ pub enum LexerError<T: LL1Token> {
     #[error("expected {:?}, but found EOF", expected)]
     UnexpectedEof { expected: T },
 }
-impl<T: LL1Token> From<LexerError<T>> for ParseObjectError<T> {
-    fn from(error: LexerError<T>) -> Self {
-        Self::LexError { error }
+impl<S: LL1Token, T: LL1Token + From<S>> From<LexerError<S>> for ParseObjectError<T>
+where
+    LexerError<T>: From<LexerError<S>>,
+{
+    fn from(error: LexerError<S>) -> Self {
+        Self::LexError { error: error.into() }
     }
 }
-impl<T: LL1Token> From<LexerError<T>> for ParseArrayError<T> {
-    fn from(error: LexerError<T>) -> Self {
-        Self::LexError { error }
+impl<S: LL1Token, T: LL1Token + From<S>> From<LexerError<S>> for ParseArrayError<T>
+where
+    LexerError<T>: From<LexerError<S>>,
+{
+    fn from(error: LexerError<S>) -> Self {
+        Self::LexError { error: error.into() }
     }
 }
-impl<T: LL1Token> From<LexerError<T>> for ParseImmediateError<T> {
-    fn from(error: LexerError<T>) -> Self {
-        Self::LexError { error }
+impl<S: LL1Token, T: LL1Token + From<S>> From<LexerError<S>> for ParseImmediateError<T>
+where
+    LexerError<T>: From<LexerError<S>>,
+{
+    fn from(error: LexerError<S>) -> Self {
+        Self::LexError { error: error.into() }
     }
 }
-impl<T: LL1Token> From<LexerError<T>> for ParseStringError<T> {
-    fn from(error: LexerError<T>) -> Self {
-        Self::LexError { error }
+impl<S: LL1Token, T: LL1Token + From<S>> From<LexerError<S>> for ParseStringError<T>
+where
+    LexerError<T>: From<LexerError<S>>,
+{
+    fn from(error: LexerError<S>) -> Self {
+        Self::LexError { error: error.into() }
     }
 }
-impl<T: LL1Token> From<LexerError<T>> for ParseNumericError<T> {
-    fn from(error: LexerError<T>) -> Self {
-        Self::LexError { error }
+impl<S: LL1Token, T: LL1Token + From<S>> From<LexerError<S>> for ParseNumericError<T>
+where
+    LexerError<T>: From<LexerError<S>>,
+{
+    fn from(error: LexerError<S>) -> Self {
+        Self::LexError { error: error.into() }
     }
 }
-
 #[derive(Error, Debug)]
 pub enum ParseObjectError<T: LL1Token> {
     #[error("{}", error)]

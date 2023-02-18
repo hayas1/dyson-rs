@@ -1,3 +1,7 @@
+use crate::syntax::error::{LexerError, ParseStringError, Positioned, TokenizeError};
+
+use super::{value::ValueToken, JsonToken, LL1Token, NonTerminalSymbol};
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ArrayToken {
     LeftBracket,
@@ -12,5 +16,22 @@ impl std::fmt::Display for ArrayToken {
             Self::RightBracket => write!(f, "]"),
             Self::Comma => write!(f, ","),
         }
+    }
+}
+impl LL1Token for ArrayToken {
+    type Error = TokenizeError<Self>;
+    type Symbol = NonTerminalSymbol;
+    fn lookahead(c: &char) -> Result<Self, Self::Error> {
+        todo!()
+    }
+    fn tokenize(s: &str) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+impl JsonToken for ArrayToken {
+    type Output = crate::ast::Value;
+    type Error = Positioned<ParseStringError<ValueToken>>;
+    fn parse(parser: &mut crate::syntax::parser::Parser) -> Result<Self::Output, <Self as JsonToken>::Error> {
+        todo!()
     }
 }
