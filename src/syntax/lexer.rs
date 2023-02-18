@@ -56,6 +56,7 @@ impl<'a> Lexer<'a> {
         self.peek()
     }
 
+    /// move cursor to previous next token
     pub fn stick<T: LL1Token>(&mut self) -> Option<&<Self as Iterator>::Item> {
         if T::Symbol::skip_ws() {
             self.skip_whitespace::<T>()
@@ -64,11 +65,13 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// get position of lexer cursor
     pub fn pos(&self) -> Position {
         self.peek().map_or_else(|| self.json.eof(), |&(pos, _)| pos)
     }
 
-    pub fn decide<T: LL1Token>(&self) -> Result<T, LexerError<T>> {
+    /// peek next 1 char, and decide type of token
+    pub fn branch<T: LL1Token>(&self) -> Result<T, LexerError<T>> {
         if let Some((_, c)) = self.peek() {
             T::lookahead(c).map_err(|error| LexerError::FailedLookahead { error })
         } else {
@@ -76,12 +79,15 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn lex<T: LL1Token>(&mut self, expected: T) -> Result<<Self as Iterator>::Item, Positioned<LexerError<T>>> {
+    /// read expected token and move cursor after it
+    pub fn lex<T: LL1Token>(
+        &mut self,
+        expected: T,
+    ) -> Result<((Position, Position), String), Positioned<LexerError<T>>> {
         if let Some(&(start, _)) = self.stick::<T>() {
-            match T::tokenize(&self.take(expected.to_string().len()).map(|(_, c)| c).collect::<String>()) {
-                Ok(td) if td == expected => Ok(self
-                    .next()
-                    .ok_or_else(|| Pos::with(LexerError::UnexpectedEof { expected }, start, self.pos()))?),
+            let s = self.take(expected.to_string().len()).map(|(_, c)| c).collect::<String>();
+            match T::tokenize(&s) {
+                Ok(td) if td == expected => Ok(((start, self.pos()), s)),
                 Ok(found) => Err(Pos::with(LexerError::UnexpectedToken { found, expected }, start, self.pos()))?,
                 Err(error) => Err(Pos::with(LexerError::FailedTokenize { expected, error }, start, self.pos()))?,
             }
@@ -90,7 +96,11 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn seek<T: LL1Token>(&mut self, expected: T) -> Result<<Self as Iterator>::Item, Positioned<LexerError<T>>> {
+    /// read expected token and move cursor after it. if unexpected token is found, return cursor before position.
+    pub fn seek<T: LL1Token>(
+        &mut self,
+        expected: T,
+    ) -> Result<((Position, Position), String), Positioned<LexerError<T>>> {
         let stuck = self.stick::<T>().cloned();
         let result = self.lex(expected);
         match (stuck, result) {
@@ -176,53 +186,68 @@ impl<'a> Lexer<'a> {
 
 #[cfg(test)]
 mod tests {
-    // use crate::syntax::error::postr;
+    use crate::syntax::token::{object::ObjectToken, string::StringToken, value::ValueToken};
 
-    // use super::*;
+    use super::*;
 
-    // #[test]
-    // fn test_json_read() {
-    //     let json: RawJson = vec!["{", "\"a\": 1", "}"].into_iter().collect();
-    //     let mut lexer = json.lexer();
-    //     assert_eq!(lexer.peek(), Some(&((0, 0), '{')));
-    //     assert_eq!(lexer.peek(), Some(&((0, 0), '{')));
-    //     assert_eq!(lexer.peek(), Some(&((0, 0), '{')));
-    //     assert_eq!(lexer.next(), Some(((0, 0), '{')));
-    //     assert_eq!(lexer.next(), Some(((0, 1), '\n')));
-    //     assert_eq!(lexer.next(), Some(((1, 0), '"')));
-    //     assert_eq!(lexer.next(), Some(((1, 1), 'a')));
-    //     assert_eq!(lexer.next(), Some(((1, 2), '"')));
-    //     assert_eq!(lexer.peek(), Some(&((1, 3), ':')));
-    //     assert_eq!(lexer.peek(), Some(&((1, 3), ':')));
-    //     assert_eq!(lexer.peek(), Some(&((1, 3), ':')));
-    //     assert_eq!(lexer.next(), Some(((1, 3), ':')));
-    //     assert_eq!(lexer.next(), Some(((1, 4), ' ')));
-    //     assert_eq!(lexer.next(), Some(((1, 5), '1')));
-    //     assert_eq!(lexer.peek(), Some(&((1, 6), '\n')));
-    //     assert_eq!(lexer.peek(), Some(&((1, 6), '\n')));
-    //     assert_eq!(lexer.peek(), Some(&((1, 6), '\n')));
-    //     assert_eq!(lexer.next(), Some(((1, 6), '\n')));
-    //     assert_eq!(lexer.next(), Some(((2, 0), '}')));
-    //     assert_eq!(lexer.peek(), Some(&((2, 1), '\n')));
-    //     assert_eq!(lexer.next(), Some(((2, 1), '\n')));
-    //     assert_eq!(lexer.peek(), None);
-    //     assert_eq!(lexer.next(), None);
-    //     assert_eq!(lexer.peek(), None);
-    //     assert_eq!(lexer.peek(), None);
-    //     assert_eq!(lexer.next(), None);
-    //     assert_eq!(lexer.next(), None);
-    // }
+    #[test]
+    fn test_json_read() {
+        let json: RawJson = vec!["{", "\"a\": 1", "}"].into_iter().collect();
+        let mut lexer = json.lexer();
+        assert_eq!(lexer.peek(), Some(&((0, 0), '{')));
+        assert_eq!(lexer.peek(), Some(&((0, 0), '{')));
+        assert_eq!(lexer.peek(), Some(&((0, 0), '{')));
+        assert_eq!(lexer.next(), Some(((0, 0), '{')));
+        assert_eq!(lexer.next(), Some(((0, 1), '\n')));
+        assert_eq!(lexer.next(), Some(((1, 0), '"')));
+        assert_eq!(lexer.next(), Some(((1, 1), 'a')));
+        assert_eq!(lexer.next(), Some(((1, 2), '"')));
+        assert_eq!(lexer.peek(), Some(&((1, 3), ':')));
+        assert_eq!(lexer.peek(), Some(&((1, 3), ':')));
+        assert_eq!(lexer.peek(), Some(&((1, 3), ':')));
+        assert_eq!(lexer.next(), Some(((1, 3), ':')));
+        assert_eq!(lexer.next(), Some(((1, 4), ' ')));
+        assert_eq!(lexer.next(), Some(((1, 5), '1')));
+        assert_eq!(lexer.peek(), Some(&((1, 6), '\n')));
+        assert_eq!(lexer.peek(), Some(&((1, 6), '\n')));
+        assert_eq!(lexer.peek(), Some(&((1, 6), '\n')));
+        assert_eq!(lexer.next(), Some(((1, 6), '\n')));
+        assert_eq!(lexer.next(), Some(((2, 0), '}')));
+        assert_eq!(lexer.peek(), Some(&((2, 1), '\n')));
+        assert_eq!(lexer.next(), Some(((2, 1), '\n')));
+        assert_eq!(lexer.peek(), None);
+        assert_eq!(lexer.next(), None);
+        assert_eq!(lexer.peek(), None);
+        assert_eq!(lexer.peek(), None);
+        assert_eq!(lexer.next(), None);
+        assert_eq!(lexer.next(), None);
+    }
 
-    // #[test]
-    // fn test_skip_whitespace() {
-    //     let json = vec!["{", "    \"a\": 1", "}"].into_iter().collect();
-    //     let expected = vec!['{', '"', 'a', '"', ':', '1', '}'];
-    //     let (mut i, mut lexer) = (0, Lexer::new(&json));
-    //     while lexer.skip_whitespace().is_some() {
-    //         assert_eq!(lexer.next().unwrap().1, expected[i]);
-    //         i += 1;
-    //     }
-    // }
+    #[test]
+    fn test_skip_whitespace() {
+        let json = vec!["{", "    \"a\": 1", "}"].into_iter().collect();
+        let expected = vec!['{', '"', 'a', '"', ':', '1', '}'];
+        let (mut i, mut lexer) = (0, Lexer::new(&json));
+        assert_eq!(lexer.skip_whitespace::<ValueToken>(), Some(&((0, 0), '{')));
+        assert_eq!(lexer.skip_whitespace::<ValueToken>(), Some(&((0, 0), '{')));
+        assert_eq!(lexer.skip_whitespace::<ValueToken>(), Some(&((0, 0), '{')));
+        assert_eq!(lexer.skip_whitespace::<ValueToken>(), Some(&((0, 0), '{')));
+        assert_eq!(lexer.skip_whitespace::<ValueToken>(), Some(&((0, 0), '{')));
+        while lexer.skip_whitespace::<ValueToken>().is_some() {
+            assert_eq!(lexer.next().unwrap().1, expected[i]);
+            i += 1;
+        }
+    }
+
+    #[test]
+    fn test_seek() {
+        let json = r#"{"a": 123}"#.into();
+        let mut lexer = Lexer::new(&json);
+        let (pos, left_brace) = lexer.seek(ObjectToken::LeftBrace).unwrap();
+        assert_eq!((pos, left_brace), (((0, 0), (0, 1)), "{".to_string()));
+        let (pos, quotation) = lexer.seek(StringToken::Quotation).unwrap();
+        assert_eq!((pos, quotation), (((0, 1), (0, 2)), "\"".to_string()));
+    }
 
     // #[test]
     // fn test_lex_1_char() {
