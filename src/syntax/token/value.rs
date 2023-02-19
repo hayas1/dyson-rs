@@ -108,4 +108,20 @@ mod tests {
             )
         )
     }
+
+    #[test]
+    fn test_str_array() {
+        let object = r#"["this", "is", "json", "parser"]"#.into();
+        let mut parser = Parser::new(&object);
+        let ast_root = ValueToken::parse(&mut parser).unwrap();
+        assert_eq!(
+            ast_root,
+            Value::Array(vec![
+                Value::String("this".to_string()),
+                Value::String("is".to_string()),
+                Value::String("json".to_string()),
+                Value::String("parser".to_string()),
+            ])
+        )
+    }
 }

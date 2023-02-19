@@ -46,6 +46,7 @@ impl JsonToken for ObjectToken {
         let mut object = LinkedHashMap::new();
         let (_, _left_brace) = parser.lexer.seek(Self::LeftBrace).map_err(Pos::inherit)?;
         while !matches!(parser.lexer.branch(), Ok(ObjectToken::RightBrace)) {
+            // HACK better loop condition
             if matches!(parser.lexer.branch(), Ok(StringToken::Quotation)) {
                 let key = StringToken::parse(parser).map_err(Pos::inherit)?;
                 let (_, _colon) = parser.lexer.seek(Self::Colon).map_err(Pos::inherit)?;
@@ -58,6 +59,8 @@ impl JsonToken for ObjectToken {
                     if matches!(parser.lexer.branch(), Ok(ObjectToken::RightBrace)) {
                         return Err(Pos::with(ParseObjectError::TrailingComma {}, start, end))?;
                     }
+                } else {
+                    break;
                 }
             } else {
                 break;

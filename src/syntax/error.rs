@@ -258,6 +258,17 @@ impl<T: LL1Token> From<ParseValueError<T>> for ParseObjectError<T> {
 pub enum ParseArrayError<T: LL1Token> {
     #[error("{}", error)]
     LexError { error: LexerError<T> },
+
+    #[error("{}", error)]
+    ParseValueError { error: Box<ParseValueError<T>> },
+
+    #[error("trailing comma is not allowed")]
+    TrailingComma {},
+}
+impl<T: LL1Token> From<ParseValueError<T>> for ParseArrayError<T> {
+    fn from(error: ParseValueError<T>) -> Self {
+        Self::ParseValueError { error: Box::new(error) }
+    }
 }
 
 #[derive(Error, Debug)]
