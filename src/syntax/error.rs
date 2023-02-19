@@ -30,7 +30,7 @@ pub struct Positioned<E: std::fmt::Debug + Send + Sync> {
     start: Position,
     end: Position,
 }
-pub struct Pos<E: std::fmt::Debug + Send + Sync>(Positioned<E>);
+pub struct Pos<E: std::fmt::Debug + Send + Sync>(pub(crate) Positioned<E>);
 impl<E: std::fmt::Debug + Send + Sync> Pos<E> {
     pub fn with(source: E, start: Position, end: Position) -> Self {
         Pos(Positioned { source, start, end })
@@ -38,7 +38,11 @@ impl<E: std::fmt::Debug + Send + Sync> Pos<E> {
     pub fn inherit(source: Positioned<E>) -> Self {
         Pos(Positioned { source: source.source, start: source.start, end: source.end })
     }
+    pub fn cast<F: From<E> + std::fmt::Debug + Send + Sync>(self) -> Pos<F> {
+        Pos(Positioned { source: self.0.source.into(), start: self.0.start, end: self.0.end })
+    }
 }
+
 impl<E, F> From<Pos<E>> for Positioned<F>
 where
     E: std::fmt::Debug + Send + Sync,
@@ -100,6 +104,12 @@ pub enum TokenizeError<T: LL1Token> {
 
     #[error("expected {:?}, but found {:?}", expected, token)]
     UnexpectedToken { token: T, expected: T },
+
+    #[error("\\{} is unknown escape character", escaped)]
+    UnexpectedEscape { escaped: char },
+
+    #[error("cannot convert {} to hexadecimal", escaped)]
+    CannotConvertHex { escaped: char },
 }
 impl<T: LL1Token> From<ConvertError> for TokenizeError<T> {
     fn from(error: ConvertError) -> Self {
@@ -243,7 +253,7 @@ pub enum ParseNumericError<T: LL1Token> {
     LexError { error: LexerError<T> },
 }
 
-#[derive(Error, Debug)] // TODO pos -> start, end
+#[derive(Error, Debug)]
 pub enum StructureError {
     #[error("{} - {}: found surplus token previous EOF", postr(start), postr(end))]
     FoundSurplus { start: Position, end: Position },
