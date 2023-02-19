@@ -164,6 +164,7 @@ where
         Self::LexError { error: error.into() }
     }
 }
+
 #[derive(Error, Debug)]
 pub enum ParseObjectError<T: LL1Token> {
     #[error("{}", error)]
@@ -195,20 +196,23 @@ pub enum ParseImmediateError<T: LL1Token> {
 
 #[derive(Error, Debug)]
 pub enum ParseStringError<T: LL1Token> {
-    #[error("{} - {}: unexpected Linefeed, cannot close string literal \"{}\"", postr(start), postr(end), comp)]
-    UnexpectedLinefeed { comp: String, start: Position, end: Position },
+    #[error("unexpected Linefeed, cannot close string literal \"{}\"", building)]
+    CannotClose { building: String },
 
-    #[error("{} - {}: unexpected EOF, cannot close string literal \"{}\"", postr(start), postr(end), comp)]
-    UnexpectedEof { comp: String, start: Position, end: Position },
+    #[error("unexpected EOF, cannot close string literal \"{}\"", building)]
+    UnexpectedEof { building: String },
 
-    #[error("{} - {}: unsupported {:?} in Rust", postr(start), postr(end), escape)]
-    UnsupportedEscapeSequence { escape: StringToken, start: Position, end: Position },
+    #[error("unsupported {:?} in Rust", token)]
+    UnsupportedEscape { token: T },
 
-    #[error("{} - {}: {} cannot be converted into unicode", postr(start), postr(end), uc)]
-    CannotConvertUnicode { uc: String, start: Position, end: Position },
+    #[error("unexpected escape sequence \"\\{}\"", escape)]
+    UnexpectedEscape { escape: String },
 
-    #[error("{} - {}: unexpected escape sequence \"\\{}\"", postr(start), postr(end), escape)]
-    UnexpectedEscapeSequence { escape: StringToken, start: Position, end: Position },
+    #[error("{:?} cannot be converted into char", token)]
+    CannotConvertChar { token: T },
+
+    #[error("{} cannot be converted into unicode", uc)]
+    CannotConvertUnicode { uc: String },
 
     #[error("{}", error)]
     LexError { error: LexerError<T> },

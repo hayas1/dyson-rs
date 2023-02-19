@@ -40,6 +40,8 @@ impl LL1Token for ObjectToken {
 impl JsonToken for ObjectToken {
     type Output = crate::ast::Value;
     type Error = Positioned<ParseObjectError<ValueToken>>;
+    /// parse `object` of json. the following ebnf is not precise.<br>
+    /// `object` := "{" { `string` ":" `value` \[ "," \] }  "}"
     fn parse(parser: &mut crate::syntax::parser::Parser) -> Result<Self::Output, <Self as JsonToken>::Error> {
         let mut object = LinkedHashMap::new();
         let (_, _left_brace) = parser.lexer.seek(Self::LeftBrace).map_err(Pos::inherit)?;
@@ -70,6 +72,14 @@ impl JsonToken for ObjectToken {
 mod tests {
     use super::*;
     use crate::{syntax::parser::Parser, Value};
+
+    #[test]
+    fn test_tokenize() {
+        assert!(matches!(ObjectToken::lookahead(&'{'), Ok(ObjectToken::LeftBrace)));
+        assert!(matches!(ObjectToken::lookahead(&'['), Err(_)));
+        assert!(matches!(ObjectToken::tokenize(":"), Ok(ObjectToken::Colon)));
+        assert!(matches!(ObjectToken::tokenize(";"), Err(_)));
+    }
 
     #[test]
     fn test_parse_empty_object() {

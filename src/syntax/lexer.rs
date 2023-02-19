@@ -71,11 +71,12 @@ impl<'a> Lexer<'a> {
     }
 
     /// peek next 1 char, and decide type of token
-    pub fn branch<T: LL1Token>(&self) -> Result<T, LexerError<T>> {
-        if let Some((_, c)) = self.peek() {
-            T::lookahead(c).map_err(|error| LexerError::FailedLookahead { error })
+    pub fn branch<T: LL1Token>(&mut self) -> Result<T, Positioned<LexerError<T>>> {
+        if let Some((_, c)) = self.stick::<T>() {
+            Ok(T::lookahead(c)
+                .map_err(|error| Pos::with(LexerError::FailedLookahead { error }, self.pos(), self.pos()))?)
         } else {
-            Err(LexerError::LookaheadEof {})
+            Err(Pos::with(LexerError::LookaheadEof {}, self.pos(), self.pos()))?
         }
     }
 
