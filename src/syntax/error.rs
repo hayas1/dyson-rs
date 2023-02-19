@@ -134,6 +134,14 @@ pub enum LexerError<T: LL1Token> {
     #[error("expected {:?}, but found EOF", expected)]
     UnexpectedEof { expected: T },
 }
+impl<S: LL1Token, T: LL1Token + From<S>> From<LexerError<S>> for ParseValueError<T>
+where
+    LexerError<T>: From<LexerError<S>>,
+{
+    fn from(error: LexerError<S>) -> Self {
+        Self::LexError { error: error.into() }
+    }
+}
 impl<S: LL1Token, T: LL1Token + From<S>> From<LexerError<S>> for ParseObjectError<T>
 where
     LexerError<T>: From<LexerError<S>>,
@@ -176,6 +184,52 @@ where
 }
 
 #[derive(Error, Debug)]
+pub enum ParseValueError<T: LL1Token> {
+    #[error("{}", error)]
+    LexError { error: LexerError<T> },
+
+    #[error("{}", error)]
+    ParseObjectError { error: ParseObjectError<T> },
+
+    #[error("{}", error)]
+    ParseArrayError { error: ParseArrayError<T> },
+
+    #[error("{}", error)]
+    ParseImmediateError { error: ParseImmediateError<T> },
+
+    #[error("{}", error)]
+    ParseStringError { error: ParseStringError<T> },
+
+    #[error("{}", error)]
+    ParseNumericError { error: ParseNumericError<T> },
+}
+impl<T: LL1Token> From<ParseObjectError<T>> for ParseValueError<T> {
+    fn from(error: ParseObjectError<T>) -> Self {
+        ParseValueError::ParseObjectError { error }
+    }
+}
+impl<T: LL1Token> From<ParseArrayError<T>> for ParseValueError<T> {
+    fn from(error: ParseArrayError<T>) -> Self {
+        ParseValueError::ParseArrayError { error }
+    }
+}
+impl<T: LL1Token> From<ParseImmediateError<T>> for ParseValueError<T> {
+    fn from(error: ParseImmediateError<T>) -> Self {
+        ParseValueError::ParseImmediateError { error }
+    }
+}
+impl<T: LL1Token> From<ParseStringError<T>> for ParseValueError<T> {
+    fn from(error: ParseStringError<T>) -> Self {
+        ParseValueError::ParseStringError { error }
+    }
+}
+impl<T: LL1Token> From<ParseNumericError<T>> for ParseValueError<T> {
+    fn from(error: ParseNumericError<T>) -> Self {
+        ParseValueError::ParseNumericError { error }
+    }
+}
+
+#[derive(Error, Debug)]
 pub enum ParseObjectError<T: LL1Token> {
     #[error("{}", error)]
     LexError { error: LexerError<T> },
@@ -183,12 +237,20 @@ pub enum ParseObjectError<T: LL1Token> {
     #[error("{}", error)]
     ParseStringError { error: ParseStringError<T> },
 
+    #[error("{}", error)]
+    ParseValueError { error: Box<ParseValueError<T>> },
+
     #[error("trailing comma is not allowed")]
     TrailingComma {},
 }
 impl<T: LL1Token> From<ParseStringError<T>> for ParseObjectError<T> {
     fn from(error: ParseStringError<T>) -> Self {
         Self::ParseStringError { error }
+    }
+}
+impl<T: LL1Token> From<ParseValueError<T>> for ParseObjectError<T> {
+    fn from(error: ParseValueError<T>) -> Self {
+        Self::ParseValueError { error: Box::new(error) }
     }
 }
 
