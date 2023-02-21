@@ -5,7 +5,6 @@ use super::{value::ValueToken, JsonToken, LL1Token, TerminalSymbol, LL1};
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum StringToken {
     Quotation,
-    ReverseSolidus,
     Unescaped(LL1),
     Escaped(EscapedStringToken),
 }
@@ -30,7 +29,6 @@ impl std::fmt::Display for StringToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Quotation => write!(f, "\""),
-            Self::ReverseSolidus => write!(f, "\\"),
             Self::Escaped(e) => write!(f, "\\{}", e),
             Self::Unescaped(u) => u.fmt(f),
         }
@@ -43,7 +41,7 @@ impl LL1Token for StringToken {
     fn lookahead(c: &char) -> Result<Self, Self::Error> {
         match c {
             '"' => Ok(Self::Quotation),
-            '\\' => Ok(Self::ReverseSolidus),
+            '\\' => Ok(Self::Escaped(EscapedStringToken::lookahead(c)?)),
             &c => Ok(Self::Unescaped(LL1::Lookahead(c))),
         }
     }
@@ -52,8 +50,6 @@ impl LL1Token for StringToken {
         if let Some(c) = v.get(0) {
             match Self::lookahead(c) {
                 Ok(t) if v.len() == 1 => return Ok(t), // TODO \u ?
-                Ok(Self::ReverseSolidus) if v.len() == 2 => return Self::lookahead(&v[1]), // TODO unexpected escape
-                Ok(Self::ReverseSolidus) if v.len() == 5 => todo!("implement tokenize hex4digits"),
                 Ok(_) | Err(_) => todo!(),
             }
         }
@@ -74,7 +70,7 @@ impl JsonToken for StringToken {
                     let pos = parser.lexer.pos();
                     Err(Pos::with(ParseStringError::CannotClose { building: string.clone() }, start, pos))?
                 }
-                Ok(StringToken::ReverseSolidus) => string.push(EscapedStringToken::parse(parser)?),
+                Ok(StringToken::Escaped(_)) => string.push(EscapedStringToken::parse(parser)?),
                 Ok(_unescaped) => string.push(parser.lexer.next().expect("previous peek ensure this next success").1),
                 Err(e) => Err(Pos::inherit(e))?,
             }
@@ -126,7 +122,8 @@ impl JsonToken for EscapedStringToken {
     /// parse `escape_sequence` of json. the following ebnf is not precise.<br>
     /// `escape_sequence` := "\\"" | "\\\\" | "\\/" | "\n" | "\r" | "\t" | `unicode`
     fn parse(parser: &mut crate::syntax::parser::Parser) -> Result<Self::Output, <Self as JsonToken>::Error> {
-        let ((start, _), _reverse_solidus) = parser.lexer.seek(StringToken::ReverseSolidus).map_err(Pos::inherit)?;
+        let ((start, _), _reverse_solidus) =
+            parser.lexer.seek(EscapedStringToken::ReverseSolidus).map_err(Pos::inherit)?;
         match parser.lexer.branch() {
             Ok(EscapedStringToken::Unicode(_)) => EscapedUnicodeToken::parse(parser),
             Ok(t) => {
@@ -148,6 +145,19 @@ impl From<LexerError<EscapedStringToken>> for LexerError<StringToken> {
         value.into()
     }
 }
+impl From<TokenizeError<EscapedStringToken>> for TokenizeError<StringToken> {
+    fn from(value: TokenizeError<EscapedStringToken>) -> Self {
+        // TODO this cause stack overflow?
+        value.into()
+    }
+}
+impl From<LexerError<EscapedStringToken>> for ParseStringError<ValueToken> {
+    fn from(value: LexerError<EscapedStringToken>) -> Self {
+        // TODO this cause stack overflow?
+        value.into()
+    }
+}
+
 impl TryFrom<EscapedStringToken> for char {
     type Error = ParseStringError<ValueToken>; // TODO not use ParseStringError
     fn try_from(token: EscapedStringToken) -> Result<Self, Self::Error> {
@@ -247,7 +257,8 @@ mod tests {
     fn test_tokenize() {
         assert!(matches!(StringToken::lookahead(&'"'), Ok(StringToken::Quotation)));
         assert!(matches!(StringToken::lookahead(&'{'), Ok(StringToken::Unescaped(LL1::Lookahead('{')))));
-        assert!(matches!(StringToken::lookahead(&'\\'), Ok(StringToken::ReverseSolidus)));
+        assert!(matches!(StringToken::lookahead(&'\\'), Ok(StringToken::Escaped(EscapedStringToken::ReverseSolidus))));
+        assert!(matches!(EscapedStringToken::lookahead(&'\\'), Ok(EscapedStringToken::ReverseSolidus)));
         assert!(matches!(EscapedStringToken::lookahead(&'n'), Ok(EscapedStringToken::Linefeed)));
         assert!(matches!(EscapedStringToken::lookahead(&'f'), Ok(EscapedStringToken::Formfeed)));
         assert!(matches!(
@@ -257,7 +268,8 @@ mod tests {
         assert!(matches!(EscapedUnicodeToken::lookahead(&'Z'), Err(_)));
 
         assert!(matches!(StringToken::tokenize("\""), Ok(StringToken::Quotation)));
-        assert!(matches!(StringToken::tokenize("\\"), Ok(StringToken::ReverseSolidus)));
+        assert!(matches!(StringToken::tokenize("\\"), Ok(StringToken::Escaped(EscapedStringToken::ReverseSolidus))));
+        assert!(matches!(EscapedStringToken::tokenize("\\"), Ok(EscapedStringToken::ReverseSolidus)));
         assert!(matches!(EscapedStringToken::tokenize("\""), Ok(EscapedStringToken::Quotation)));
         assert!(matches!(EscapedStringToken::tokenize("n"), Ok(EscapedStringToken::Linefeed)));
         assert_eq!(
