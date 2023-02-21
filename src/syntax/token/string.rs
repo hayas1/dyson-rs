@@ -60,7 +60,7 @@ impl JsonToken for StringToken {
     type Output = crate::ast::Value;
     type Error = Positioned<ParseStringError<ValueToken>>;
     /// parse `string` of json. the following ebnf is not precise.<br>
-    /// `string` := """ { `escape_sequence` | `char`  } """
+    /// `string` := """ { "\\" `escape_sequence` | `char`  } """
     fn parse(parser: &mut crate::syntax::parser::Parser) -> Result<Self::Output, <Self as JsonToken>::Error> {
         let mut string = String::new();
         let ((start, _), _quotation) = parser.lexer.seek(StringToken::Quotation).map_err(Pos::inherit)?;
@@ -120,7 +120,7 @@ impl JsonToken for EscapedStringToken {
     type Output = char;
     type Error = Positioned<ParseStringError<ValueToken>>;
     /// parse `escape_sequence` of json. the following ebnf is not precise.<br>
-    /// `escape_sequence` := "\\"" | "\\\\" | "\\/" | "\n" | "\r" | "\t" | `unicode`
+    /// `escape_sequence` := "\\" { "\"" | "\\" | "/" | "n" | "r" | "t" | `unicode` }
     fn parse(parser: &mut crate::syntax::parser::Parser) -> Result<Self::Output, <Self as JsonToken>::Error> {
         let ((start, _), _reverse_solidus) =
             parser.lexer.seek(EscapedStringToken::ReverseSolidus).map_err(Pos::inherit)?;
@@ -209,7 +209,7 @@ impl JsonToken for EscapedUnicodeToken {
     type Output = char;
     type Error = Positioned<ParseStringError<ValueToken>>;
     /// parse `unicode` of json. the following ebnf is not precise.<br>
-    /// `unicode` := "\u" `hex4digits`
+    /// "\" `unicode` := "u" `hex4digits`
     fn parse(parser: &mut crate::syntax::parser::Parser) -> Result<Self::Output, <Self as JsonToken>::Error> {
         let mut hex4 = String::new();
         let ((_start, _), _reverse_solidus) = parser
@@ -218,7 +218,12 @@ impl JsonToken for EscapedUnicodeToken {
             .map_err(|e| Pos(e).cast::<LexerError<StringToken>>())?;
         for _ in 0..4 {
             match parser.lexer.branch() {
-                Ok(t @ EscapedUnicodeToken::Hex4Digits(_)) => {
+                // TODO
+                Ok(EscapedUnicodeToken::Hex4Digits(LL1::Lookahead(c))) => {
+                    let expected = EscapedUnicodeToken::Hex4Digits(LL1::Tokenized(c.to_string()));
+                    hex4.push_str(&parser.lexer.seek(expected).expect("previous lookahead ensure this seek success").1)
+                }
+                Ok(t @ EscapedUnicodeToken::Hex4Digits(LL1::Tokenized(_))) => {
                     hex4.push_str(&parser.lexer.seek(t).expect("previous lookahead ensure this seek success").1)
                 }
                 Err(e) => Err(Pos(e).cast::<LexerError<StringToken>>())?,
